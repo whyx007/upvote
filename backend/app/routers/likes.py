@@ -25,6 +25,10 @@ class RevokeIn(BaseModel):
     batch_id: str
 
 
+class DecrementIn(BaseModel):
+    student_id: int
+
+
 @router.post("")
 def create_like(body: LikeIn, request: Request, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     semester = current_semester(db)
@@ -70,6 +74,38 @@ def create_like(body: LikeIn, request: Request, teacher=Depends(get_current_teac
             for s in targets
         ],
     }
+
+
+@router.post("/decrement")
+def decrement_like(body: DecrementIn, request: Request, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    """课堂纠错：减少当前学期本人最近一次给该学生的点赞（-1）。"""
+    student = db.get(Student, body.student_id)
+    if student is None or not student.is_active:
+        raise HTTPException(status_code=404, detail="学生不存在")
+    semester = current_semester(db)
+    if semester is None:
+        raise HTTPException(status_code=400, detail="当前没有激活的学期")
+    like = db.scalar(
+        select(Like)
+        .where(
+            Like.student_id == student.id,
+            Like.semester_id == semester.id,
+            Like.teacher_id == teacher.id,
+            Like.revoked_at.is_(None),
+        )
+        .order_by(Like.id.desc())
+        .limit(1)
+    )
+    if like is None:
+        raise HTTPException(status_code=400, detail="没有可减少的点赞（只能减少本人本学期有效点赞）")
+    if like.created_at.date() != date.today():
+        raise HTTPException(status_code=400, detail="只能减少当日点赞，更早的请在管理端处理")
+    like.revoked_at = datetime.now()
+    db.commit()
+    balances = balances_for_students(
+        db, [student.id], semester.id, request.app.state.settings.coins_per_like
+    )[student.id]
+    return {"student_id": student.id, **balances, "count": 1}
 
 
 @router.post("/revoke")

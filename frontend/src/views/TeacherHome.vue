@@ -6,6 +6,7 @@ import UserMenu from '../components/UserMenu.vue'
 
 const classes = ref([])
 const className = ref('')
+const semester = ref(null)
 const showClassPicker = ref(false)
 const roster = ref([])
 const groups = ref([])
@@ -14,9 +15,15 @@ const tab = ref('like')
 const loading = ref(false)
 const liking = ref(new Set())
 const likingGroup = ref(new Set())
+const search = ref('')
 
 const classColumns = computed(() => classes.value.map((c) => ({ text: c, value: c })))
-const ranked = computed(() => [...roster.value].sort((a, b) => b.semester_balance - a.semester_balance))
+const ranked = computed(() => [...roster.value].sort((a, b) => b.semester_balance - a.semester_balance || a.student_no.localeCompare(b.student_no)))
+const visibleRoster = computed(() => {
+  const q = search.value.trim()
+  return q ? roster.value.filter((s) => s.name.includes(q) || s.student_no.includes(q)) : roster.value
+})
+const classCoins = computed(() => roster.value.reduce((sum, s) => sum + s.semester_balance, 0))
 
 async function loadClasses() {
   const { data } = await api.get('/my/classes')
@@ -67,6 +74,22 @@ async function likeStudent(s) {
   }
 }
 
+async function decrementStudent(s) {
+  if (liking.value.has(s.id) || s.semester_balance <= 0) return
+  liking.value.add(s.id)
+  try {
+    const { data } = await api.post('/likes/decrement', { student_id: s.id })
+    s.semester_balance = data.semester_balance
+    s.total_balance = data.total_balance
+    showToast(`${s.name} −1，已回退最近一次点赞`)
+    loadRecent()
+  } catch {
+    /* 拦截器已提示 */
+  } finally {
+    liking.value.delete(s.id)
+  }
+}
+
 async function likeGroup(g) {
   if (likingGroup.value.has(g.id)) return
   likingGroup.value.add(g.id)
@@ -101,6 +124,7 @@ async function undo(item) {
 function onClassConfirm({ selectedValues }) {
   className.value = selectedValues[0]
   showClassPicker.value = false
+  search.value = ''
   loadAll()
 }
 
@@ -108,62 +132,129 @@ function fmtTime(iso) {
   return iso ? iso.slice(11, 16) : ''
 }
 
+function avatarText(name) {
+  return name.length > 2 ? name.slice(-2) : name
+}
+
 onMounted(async () => {
-  await loadClasses()
+  const [{ data: currentSemester }] = await Promise.all([api.get('/semesters/current'), loadClasses()])
+  semester.value = currentSemester
   await loadAll()
 })
 </script>
 
 <template>
-  <div class="page">
-    <van-nav-bar title="星灿点赞" fixed placeholder>
+  <div class="page teacher-page">
+    <van-nav-bar class="teacher-nav" title="星灿点赞" fixed placeholder>
       <template #right><UserMenu /></template>
     </van-nav-bar>
 
-    <van-cell title="班级" :value="className || '未分配'" is-link @click="showClassPicker = true" />
+    <section class="class-hero">
+      <div class="hero-orb hero-orb-a"></div>
+      <div class="hero-orb hero-orb-b"></div>
+      <div class="hero-content">
+        <div class="hero-kicker"><span>✦</span> 星灿币 · 让每一点进步被看见</div>
+        <button class="hero-class" type="button" @click="showClassPicker = true">
+          <span>{{ className || '选择任教班级' }}</span>
+          <van-icon name="exchange" />
+        </button>
+        <div class="hero-meta">{{ semester ? semester.name : '尚未激活学期' }}</div>
+        <div class="hero-stats">
+          <div><strong>{{ roster.length }}</strong><span>班级学生</span></div>
+          <i></i>
+          <div><strong>{{ groups.length }}</strong><span>学习小组</span></div>
+          <i></i>
+          <div><strong>{{ classCoins }}</strong><span>本学期星灿币</span></div>
+        </div>
+      </div>
+    </section>
 
-    <van-tabs v-model:active="tab" sticky>
-      <van-tab title="点赞" name="like">
-        <van-loading v-if="loading" style="text-align: center; padding: 24px" />
+    <van-tabs v-model:active="tab" class="teacher-tabs" animated swipeable>
+      <van-tab title="课堂点赞" name="like">
+        <van-loading v-if="loading" style="text-align: center; padding: 40px" />
         <template v-else>
           <van-empty v-if="!className" description="还没有任教班级，请联系管理员导入任教关系" />
           <template v-else>
-            <template v-if="groups.length">
-              <div class="section-title">学习小组（一键全员点赞）</div>
+            <section v-if="groups.length" class="like-section group-section">
+              <div class="section-heading">
+                <div><span class="section-eyebrow">TEAM SPIRIT</span><h3>为小组喝彩</h3></div>
+                <span class="section-tip">一键全组 +1</span>
+              </div>
               <div class="group-row">
-                <div v-for="g in groups" :key="g.id" class="group-chip">
-                  <span>{{ g.name }}（{{ g.member_count }}人）</span>
-                  <van-button size="small" type="warning" round :loading="likingGroup.has(g.id)" @click="likeGroup(g)">👍</van-button>
+                <div v-for="(g, index) in groups" :key="g.id" class="group-chip" :class="`tone-${index % 4}`">
+                  <div class="group-icon">✦</div>
+                  <div class="group-info"><strong>{{ g.name }}</strong><span>{{ g.member_count }} 位成员</span></div>
+                  <van-button size="small" round :loading="likingGroup.has(g.id)" @click="likeGroup(g)">👍 +1</van-button>
                 </div>
               </div>
-            </template>
-            <div class="section-title">学生（{{ roster.length }} 人）· 点 👍 即 +1 星灿币</div>
-            <van-empty v-if="!roster.length" description="该班级还没有学生，请先导入" />
-            <div class="student-grid">
-              <div v-for="s in roster" :key="s.id" class="student-card">
-                <div class="name">{{ s.name }} <span v-if="s.gender" class="gender-tag" :class="s.gender === '男' ? 'boy' : 'girl'">{{ s.gender }}</span></div>
-                <div class="no">{{ s.student_no }}</div>
-                <div class="coin-badge">⭐ {{ s.semester_balance }}</div>
-                <van-button class="like-btn" type="warning" round :loading="liking.has(s.id)" @click="likeStudent(s)">👍</van-button>
+            </section>
+
+            <section class="like-section students-section">
+              <div class="section-heading">
+                <div><span class="section-eyebrow">EVERY STAR COUNTS</span><h3>为学生点赞 <em>{{ roster.length }}</em></h3></div>
+                <span class="section-tip">👍 加 1 · − 减 1</span>
               </div>
-            </div>
-            <template v-if="recent.length">
-              <div class="section-title">最近点赞（当日可撤销）</div>
-              <van-cell-group inset>
-                <van-cell v-for="item in recent" :key="item.batch_id" :title="item.student_names.join('、') + (item.group_name ? `〔${item.group_name}〕` : '')" :label="`${fmtTime(item.created_at)} · ${item.count} 赞${item.revoked ? ' · 已撤销' : ''}`">
-                  <template #right>
-                    <van-button v-if="item.can_revoke" size="mini" plain type="danger" @click="undo(item)">撤销</van-button>
-                  </template>
-                </van-cell>
-              </van-cell-group>
-            </template>
+              <van-search v-model="search" class="student-search" placeholder="快速找学生：姓名 / 学号" shape="round" background="transparent" />
+              <van-empty v-if="!roster.length" description="该班级还没有学生，请先导入" />
+              <van-empty v-else-if="!visibleRoster.length" description="没有匹配的学生" />
+              <div class="student-grid">
+                <div v-for="s in visibleRoster" :key="s.id" class="student-card" :class="{ 'has-coins': s.semester_balance > 0 }">
+                  <div class="student-avatar" :class="s.gender === '女' ? 'girl' : 'boy'">{{ avatarText(s.name) }}</div>
+                  <div class="student-name">{{ s.name }}</div>
+                  <div class="student-no">{{ s.student_no }}</div>
+                  <div class="student-balance"><span>⭐</span><strong>{{ s.semester_balance }}</strong><small>星灿币</small></div>
+                  <div class="like-controls">
+                    <button
+                      class="decrement-btn"
+                      type="button"
+                      :disabled="s.semester_balance <= 0 || liking.has(s.id)"
+                      :aria-label="`减少${s.name}一个点赞`"
+                      @click="decrementStudent(s)"
+                    >−</button>
+                    <van-button class="like-btn" type="warning" round :loading="liking.has(s.id)" @click="likeStudent(s)">
+                      <span class="like-symbol">👍</span><span class="like-plus">+1</span>
+                    </van-button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section v-if="recent.length" class="like-section recent-section">
+              <div class="section-heading">
+                <div><span class="section-eyebrow">JUST NOW</span><h3>最近点赞</h3></div>
+                <span class="section-tip">当日可撤销</span>
+              </div>
+              <div class="recent-list">
+                <div v-for="item in recent" :key="item.batch_id" class="recent-item" :class="{ revoked: item.revoked }">
+                  <div class="recent-icon">👍</div>
+                  <div class="recent-info">
+                    <strong>{{ item.student_names.join('、') }}<span v-if="item.group_name">〔{{ item.group_name }}〕</span></strong>
+                    <span>{{ fmtTime(item.created_at) }} · {{ item.count }} 赞{{ item.revoked ? ' · 已撤销' : '' }}</span>
+                  </div>
+                  <van-button v-if="item.can_revoke" size="mini" plain type="danger" round @click="undo(item)">撤销</van-button>
+                </div>
+              </div>
+            </section>
           </template>
         </template>
       </van-tab>
-      <van-tab title="排行" name="rank">
-        <van-cell-group inset style="margin-top: 12px">
-          <van-cell v-for="(s, i) in ranked" :key="s.id" :title="`${i + 1}. ${s.name}`" :label="s.student_no" :value="`⭐ ${s.semester_balance}（累计 ${s.total_balance}）`" />
-        </van-cell-group>
+
+      <van-tab title="班级星光榜" name="rank">
+        <section class="like-section rank-section">
+          <div class="section-heading">
+            <div><span class="section-eyebrow">SHINING STARS</span><h3>班级星光榜</h3></div>
+            <span class="section-tip">按本学期星灿币排序</span>
+          </div>
+          <div class="rank-list">
+            <div v-for="(s, i) in ranked" :key="s.id" class="rank-row" :class="{ 'rank-top': i < 3 }">
+              <div class="rank-number">{{ i + 1 }}</div>
+              <div class="student-avatar small" :class="s.gender === '女' ? 'girl' : 'boy'">{{ avatarText(s.name) }}</div>
+              <div class="rank-person"><strong>{{ s.name }}</strong><span>{{ s.student_no }}</span></div>
+              <div class="rank-coins"><strong>⭐ {{ s.semester_balance }}</strong><span>累计 {{ s.total_balance }}</span></div>
+            </div>
+          </div>
+          <van-empty v-if="!ranked.length" description="暂无排行数据" />
+        </section>
       </van-tab>
     </van-tabs>
 
