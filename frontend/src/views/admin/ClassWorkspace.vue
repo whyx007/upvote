@@ -307,26 +307,26 @@ onMounted(async () => {
             <van-button size="small" type="warning" icon="plus" @click="openStudentCreate">新增学生</van-button>
           </div>
           <van-loading v-if="loading" style="text-align: center; padding: 24px" />
-          <div v-else class="roster-list">
-            <div v-for="s in filteredRoster" :key="s.id" class="roster-row">
-              <div class="roster-info">
-                <div class="roster-name">
-                  {{ s.name }}
+          <template v-else>
+            <div class="student-grid-admin">
+              <div v-for="s in filteredRoster" :key="s.id" class="student-tile">
+                <div class="st-head">
+                  <span class="st-name">{{ s.name }}</span>
                   <van-tag v-if="s.gender" :type="s.gender === '男' ? 'primary' : 'danger'" plain size="medium">{{ s.gender }}</van-tag>
-                  <span class="roster-no">{{ s.student_no }}</span>
                 </div>
-                <div class="roster-tags">
-                  <van-tag v-for="gname in s.groups" :key="gname" plain type="warning" size="medium">{{ gname }}</van-tag>
-                  <span v-if="!s.groups.length" class="muted">未分组</span>
+                <div class="st-no">{{ s.student_no }}</div>
+                <div class="st-groups">
+                  <span v-for="gname in s.groups" :key="gname" class="st-group">{{ gname }}</span>
+                  <span v-if="!s.groups.length" class="st-group none">未分组</span>
                 </div>
-              </div>
-              <div class="roster-actions">
-                <van-button size="mini" plain type="primary" icon="edit" @click="openStudentEdit(s)" />
-                <van-button size="mini" plain type="danger" icon="delete-o" @click="removeStudent(s)" />
+                <div class="st-actions">
+                  <van-button size="mini" plain type="primary" icon="edit" @click="openStudentEdit(s)">编辑</van-button>
+                  <van-button size="mini" plain type="danger" icon="delete-o" @click="removeStudent(s)">删除</van-button>
+                </div>
               </div>
             </div>
             <van-empty v-if="!filteredRoster.length" description="没有学生" />
-          </div>
+          </template>
         </van-tab>
 
         <van-tab :title="`小组 ${groups.length}`" name="groups">

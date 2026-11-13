@@ -414,6 +414,73 @@ html, body, #app {
 .class-picker-inline::-webkit-scrollbar-track {
   background: #fff7e8;
 }
+
+/* 班级学生名单：一行四列卡片 */
+.student-grid-admin {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 4px 16px 16px;
+}
+.student-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  transition: all 0.15s ease;
+}
+.student-tile:hover {
+  border-color: #ffd8a8;
+  box-shadow: 0 4px 12px rgba(255, 159, 67, 0.16);
+  transform: translateY(-1px);
+}
+.st-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.st-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.st-no {
+  font-size: 12px;
+  color: #c8c9cc;
+}
+.st-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-height: 20px;
+}
+.st-group {
+  font-size: 11px;
+  background: #fff7e8;
+  color: #d48806;
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+.st-group.none {
+  background: #f7f8fa;
+  color: #c8c9cc;
+}
+.st-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: auto;
+}
+.st-actions .van-button {
+  flex: 1;
+}
+@media (max-width: 560px) {
+  .student-grid-admin {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 .subject-section {
   margin-bottom: 8px;
 }
