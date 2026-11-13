@@ -20,13 +20,13 @@ SHEET_TEACHING = "任教"
 
 HEADERS = {
     SHEET_STUDENTS: ["学号", "姓名", "年级", "班级", "入学年份"],
-    SHEET_TEACHERS: ["工号", "姓名", "手机号", "初始密码", "角色"],
+    SHEET_TEACHERS: ["工号", "姓名", "手机号", "初始密码", "角色", "学科"],
     SHEET_GROUPS: ["小组名称", "班级", "成员学号"],
     SHEET_TEACHING: ["工号", "班级"],
 }
 EXAMPLES = {
     SHEET_STUDENTS: ["2026001", "张小明", "初一", "初一1班", 2026],
-    SHEET_TEACHERS: ["T001", "王老师", "13800000001", "123456", "teacher"],
+    SHEET_TEACHERS: ["T001", "王老师", "13800000001", "123456", "teacher", "语文"],
     SHEET_GROUPS: ["星辰组", "初一1班", "2026001,2026002"],
     SHEET_TEACHING: ["T001", "初一1班"],
 }
@@ -94,7 +94,7 @@ def _import_teachers(db: Session, ws) -> dict:
     stat = _new_stat()
     for row_no, row in _data_rows(ws):
         employee_no, name, phone = _s(row[0]), _s(row[1]), _s(row[2])
-        password, role = _s(row[3]), _s(row[4])
+        password, role, subject = _s(row[3]), _s(row[4]), _s(row[5])
         if not employee_no or not name:
             stat["errors"].append({"row": row_no, "message": "工号、姓名为必填项"})
             continue
@@ -110,6 +110,8 @@ def _import_teachers(db: Session, ws) -> dict:
             if password:
                 teacher.password_hash = hash_password(password)
         teacher.name, teacher.phone, teacher.role = name, phone or None, role
+        if subject:
+            teacher.subject = subject
         teacher.is_active = True
     return stat
 

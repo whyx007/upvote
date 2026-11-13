@@ -43,6 +43,7 @@ def _serialize(db: Session, g: Group) -> dict:
 @router.get("")
 def list_groups(
     class_name: str = "",
+    include_members: bool = False,
     teacher=Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
@@ -50,7 +51,19 @@ def list_groups(
     if class_name:
         stmt = stmt.where(Group.class_name == class_name)
     groups = db.scalars(stmt.order_by(Group.class_name, Group.name)).all()
-    return {"items": [_serialize(db, g) for g in groups]}
+    items = []
+    for g in groups:
+        item = _serialize(db, g)
+        if include_members:
+            members = db.scalars(
+                select(Student)
+                .join(GroupMember, GroupMember.student_id == Student.id)
+                .where(GroupMember.group_id == g.id)
+                .order_by(Student.student_no)
+            ).all()
+            item["members"] = [{"id": s.id, "student_no": s.student_no, "name": s.name} for s in members]
+        items.append(item)
+    return {"items": items}
 
 
 @router.post("")

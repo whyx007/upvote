@@ -38,6 +38,11 @@ def test_teacher_list_pagination(client, admin_headers):
     assert len(r.json()["items"]) == 2
 
 
+def test_teacher_list_accepts_large_page(client, admin_headers):
+    r = client.get("/api/teachers", headers=admin_headers, params={"page_size": 500})
+    assert r.status_code == 200
+
+
 def test_admin_create_student(client, admin_headers):
     r = client.post(
         "/api/students",
@@ -92,3 +97,18 @@ def test_classes_list(client, admin_headers, school):
     r = client.get("/api/classes", headers=admin_headers)
     assert r.status_code == 200
     assert r.json() == ["初一1班"]
+
+
+def test_teacher_subject_and_classes_in_list(client, admin_headers, school):
+    teachers = client.get("/api/teachers", headers=admin_headers, params={"page_size": 200}).json()["items"]
+    t = next(x for x in teachers if x["employee_no"] == "T001")
+    assert t["classes"] == ["初一1班"]
+    r = client.post(
+        "/api/teachers",
+        headers=admin_headers,
+        json={"employee_no": "T002", "name": "赵老师", "subject": "数学"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["subject"] == "数学"
+    tid = r.json()["id"]
+    assert client.patch(f"/api/teachers/{tid}", headers=admin_headers, json={"subject": "物理"}).json()["subject"] == "物理"

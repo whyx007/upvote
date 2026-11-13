@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 
@@ -13,3 +13,13 @@ def make_engine(database_url: str):
 
 def make_session_factory(engine):
     return sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def ensure_schema(engine):
+    """轻量迁移：为已存在的旧库补齐新增列（SQLite ALTER TABLE ADD COLUMN，幂等）。"""
+    inspector = inspect(engine)
+    if "teachers" in inspector.get_table_names():
+        cols = {c["name"] for c in inspector.get_columns("teachers")}
+        if "subject" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE teachers ADD COLUMN subject VARCHAR(32)"))

@@ -75,7 +75,7 @@ def main():
             for chunk in (class_names[0:3], class_names[3:6], class_names[6:10]):
                 teacher_no += 1
                 emp = f"T{teacher_no:03d}"
-                teachers.append([emp, random_name(), random_phone(), "123456", "teacher"])
+                teachers.append([emp, random_name(), random_phone(), "123456", "teacher", subject])
                 for class_name in chunk:
                     teaching.append([emp, class_name])
 
@@ -83,7 +83,7 @@ def main():
     wb.remove(wb.active)
     for name, header, rows in [
         ("学生", ["学号", "姓名", "年级", "班级", "入学年份"], students),
-        ("教师", ["工号", "姓名", "手机号", "初始密码", "角色"], teachers),
+        ("教师", ["工号", "姓名", "手机号", "初始密码", "角色", "学科"], teachers),
         ("小组", ["小组名称", "班级", "成员学号"], groups),
         ("任教", ["工号", "班级"], teaching),
     ]:

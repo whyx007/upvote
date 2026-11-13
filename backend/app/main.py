@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.engine.url import make_url
 
 from .config import Settings
-from .db import Base, make_engine, make_session_factory
+from .db import Base, ensure_schema, make_engine, make_session_factory
 from .routers import (
     auth,
     classes,
@@ -35,6 +35,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         Base.metadata.create_all(engine)
+        ensure_schema(engine)
         with make_session_factory(engine)() as session:
             seed_admin(session, settings)
         yield

@@ -135,3 +135,19 @@ def test_single_workbook_cross_sheet_references(client, admin_headers):
     assert body["groups"]["errors"] == []
     assert body["teaching"]["created"] == 1
     assert body["teaching"]["errors"] == []
+
+
+def test_template_teacher_sheet_has_subject(client, admin_headers):
+    r = client.get("/api/imports/template", headers=admin_headers)
+    wb = load_workbook(io.BytesIO(r.content))
+    header = [c.value for c in wb["教师"][1]]
+    assert "学科" in header
+
+
+def test_import_teachers_with_subject(client, admin_headers):
+    content = make_xlsx({"教师": [TEACHER_HEADER + ["学科"], ["T001", "王老师", None, None, None, "语文"]]})
+    r = upload(client, admin_headers, content)
+    assert r.json()["teachers"]["created"] == 1
+    teachers = client.get("/api/teachers", headers=admin_headers).json()["items"]
+    t = next(x for x in teachers if x["employee_no"] == "T001")
+    assert t["subject"] == "语文"

@@ -29,7 +29,14 @@ class ChangePasswordIn(BaseModel):
 
 
 def serialize_teacher(t: Teacher) -> dict:
-    return {"id": t.id, "employee_no": t.employee_no, "name": t.name, "phone": t.phone, "role": t.role}
+    return {
+        "id": t.id,
+        "employee_no": t.employee_no,
+        "name": t.name,
+        "phone": t.phone,
+        "role": t.role,
+        "subject": t.subject,
+    }
 
 
 @router.post("/login")
