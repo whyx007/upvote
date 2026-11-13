@@ -135,22 +135,21 @@ onMounted(() => {
 
     <div v-for="g in grouped" :key="g.subject" class="subject-section">
       <div class="subject-header">{{ g.subject }} <span class="muted">{{ g.teachers.length }} 人</span></div>
-      <div class="roster-list">
-        <div v-for="t in g.teachers" :key="t.id" class="roster-row">
-          <div class="roster-info">
-            <div class="roster-name">
-              {{ t.name }} <span class="roster-no">{{ t.employee_no }}</span>
-              <van-tag v-if="t.role === 'admin'" type="primary" plain size="medium">管理员</van-tag>
-              <van-tag v-if="!t.is_active" type="danger" plain size="medium">已停用</van-tag>
-            </div>
-            <div class="roster-tags">
-              <van-tag type="primary" plain size="medium">{{ gradeLabel(t) }}</van-tag>
-              <van-tag v-for="c in t.classes" :key="c" plain size="medium">{{ c }}</van-tag>
-            </div>
+      <div class="student-grid-admin">
+        <div v-for="t in g.teachers" :key="t.id" class="student-tile" :class="{ inactive: !t.is_active }">
+          <div class="st-head">
+            <span class="st-name">{{ t.name }}</span>
+            <van-tag v-if="t.role === 'admin'" type="primary" plain size="medium">管理员</van-tag>
+            <van-tag v-if="!t.is_active" type="danger" plain size="medium">已停用</van-tag>
           </div>
-          <div class="roster-actions">
-            <van-button size="mini" plain type="primary" icon="edit" @click="openEdit(t)" />
-            <van-button v-if="t.is_active" size="mini" plain type="danger" icon="delete-o" @click="remove(t)" />
+          <div class="st-no">{{ t.employee_no }}</div>
+          <div class="st-groups">
+            <span class="st-group grade">{{ gradeLabel(t) }}</span>
+            <span v-for="c in t.classes" :key="c" class="st-group">{{ c }}</span>
+          </div>
+          <div class="st-actions">
+            <van-button size="mini" plain type="primary" icon="edit" @click="openEdit(t)">编辑</van-button>
+            <van-button v-if="t.is_active" size="mini" plain type="danger" icon="delete-o" @click="remove(t)">停用</van-button>
           </div>
         </div>
       </div>

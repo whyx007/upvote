@@ -468,6 +468,18 @@ html, body, #app {
   background: #f7f8fa;
   color: #c8c9cc;
 }
+.st-group.subject {
+  background: #e8f3ff;
+  color: #1989fa;
+}
+.st-group.grade {
+  background: #e8f3ff;
+  color: #1989fa;
+  font-weight: 600;
+}
+.student-tile.inactive {
+  opacity: 0.55;
+}
 .st-actions {
   display: flex;
   gap: 6px;

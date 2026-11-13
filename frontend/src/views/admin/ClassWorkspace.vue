@@ -363,20 +363,22 @@ onMounted(async () => {
             <van-button size="small" type="warning" icon="plus" @click="openAssign">指派教师</van-button>
             <span class="muted">移除任课不会删除教师账号</span>
           </div>
-          <div class="roster-list">
-            <div v-for="t in classTeachers" :key="t.id" class="roster-row">
-              <div class="roster-info">
-                <div class="roster-name">{{ t.name }} <span class="roster-no">{{ t.employee_no }}</span></div>
-                <div class="roster-tags">
-                  <van-tag type="primary" plain size="medium">{{ t.subject || '未设学科' }}</van-tag>
-                </div>
+          <div class="student-grid-admin">
+            <div v-for="t in classTeachers" :key="t.id" class="student-tile">
+              <div class="st-head">
+                <span class="st-name">{{ t.name }}</span>
+                <van-tag v-if="t.role === 'admin'" type="primary" plain size="medium">管理员</van-tag>
               </div>
-              <div class="roster-actions">
-                <van-button size="mini" plain type="danger" @click="removeClassTeacher(t)">移除</van-button>
+              <div class="st-no">{{ t.employee_no }}</div>
+              <div class="st-groups">
+                <span class="st-group subject">{{ t.subject || '未设学科' }}</span>
+              </div>
+              <div class="st-actions">
+                <van-button size="mini" plain type="danger" icon="delete-o" @click="removeClassTeacher(t)">移除任课</van-button>
               </div>
             </div>
-            <van-empty v-if="!classTeachers.length" description="还没有任课教师，点「指派教师」添加" />
           </div>
+          <van-empty v-if="!classTeachers.length" description="还没有任课教师，点「指派教师」添加" />
         </van-tab>
       </van-tabs>
     </main>
