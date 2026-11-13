@@ -47,21 +47,28 @@ html, body, #app {
 }
 .student-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 12px;
-  padding: 12px 16px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
 }
 .student-card {
   background: #fff;
   border-radius: 12px;
-  padding: 14px 10px;
+  padding: 10px 6px;
   text-align: center;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.student-card:active {
+  transform: scale(0.97);
 }
 .student-card .name {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .gender-tag {
   font-size: 11px;
@@ -79,22 +86,26 @@ html, body, #app {
   color: #ee0a24;
 }
 .student-card .no {
-  font-size: 12px;
+  font-size: 11px;
   color: #c8c9cc;
-  margin-bottom: 6px;
+  margin-bottom: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .coin-badge {
   display: inline-block;
   background: #fff7e8;
   color: #ff9f43;
   border-radius: 10px;
-  padding: 2px 10px;
-  font-size: 13px;
-  margin-bottom: 8px;
+  padding: 1px 8px;
+  font-size: 12px;
+  margin-bottom: 6px;
 }
 .like-btn {
   width: 100%;
-  font-size: 20px;
+  font-size: 18px;
+  padding: 0 4px;
 }
 .group-row {
   display: flex;
