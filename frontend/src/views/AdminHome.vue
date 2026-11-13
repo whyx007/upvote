@@ -1,0 +1,32 @@
+<script setup>
+import { ref } from 'vue'
+import UserMenu from '../components/UserMenu.vue'
+import ImportPanel from './admin/ImportPanel.vue'
+import StudentsPanel from './admin/StudentsPanel.vue'
+import TeachersPanel from './admin/TeachersPanel.vue'
+import GroupsPanel from './admin/GroupsPanel.vue'
+import SemestersPanel from './admin/SemestersPanel.vue'
+import RewardsPanel from './admin/RewardsPanel.vue'
+import RedeemPanel from './admin/RedeemPanel.vue'
+import StatsPanel from './admin/StatsPanel.vue'
+
+const tab = ref('import')
+</script>
+
+<template>
+  <div class="page">
+    <van-nav-bar title="星灿管理台" fixed placeholder>
+      <template #right><UserMenu /></template>
+    </van-nav-bar>
+    <van-tabs v-model:active="tab" scrollable sticky>
+      <van-tab title="导入" name="import"><ImportPanel v-if="tab === 'import'" /></van-tab>
+      <van-tab title="学生" name="students"><StudentsPanel v-if="tab === 'students'" /></van-tab>
+      <van-tab title="教师" name="teachers"><TeachersPanel v-if="tab === 'teachers'" /></van-tab>
+      <van-tab title="小组" name="groups"><GroupsPanel v-if="tab === 'groups'" /></van-tab>
+      <van-tab title="学期" name="semesters"><SemestersPanel v-if="tab === 'semesters'" /></van-tab>
+      <van-tab title="奖励" name="rewards"><RewardsPanel v-if="tab === 'rewards'" /></van-tab>
+      <van-tab title="兑换" name="redeem"><RedeemPanel v-if="tab === 'redeem'" /></van-tab>
+      <van-tab title="统计" name="stats"><StatsPanel v-if="tab === 'stats'" /></van-tab>
+    </van-tabs>
+  </div>
+</template>

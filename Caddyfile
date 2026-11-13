@@ -1,0 +1,6 @@
+# 设置 DOMAIN 为真实域名时 Caddy 自动申请 HTTPS 证书；
+# 不设置则监听 :80（校内局域网可用 HTTP，或自行加 TLS）。
+{$DOMAIN::80} {
+	encode gzip
+	reverse_proxy app:8000
+}
