@@ -62,7 +62,7 @@ def main():
             class_student_nos = []
             for si in range(1, STUDENTS_PER_CLASS + 1):
                 student_no = f"{year}{ci:02d}{si:02d}"
-                students.append([student_no, random_name(), grade, class_name, year])
+                students.append([student_no, random_name(), grade, class_name, year, random.choice(["男", "女"])])
                 class_student_nos.append(student_no)
             # 学习小组
             offset = 0
@@ -82,7 +82,7 @@ def main():
     wb = Workbook()
     wb.remove(wb.active)
     for name, header, rows in [
-        ("学生", ["学号", "姓名", "年级", "班级", "入学年份"], students),
+        ("学生", ["学号", "姓名", "年级", "班级", "入学年份", "性别"], students),
         ("教师", ["工号", "姓名", "手机号", "初始密码", "角色", "学科"], teachers),
         ("小组", ["小组名称", "班级", "成员学号"], groups),
         ("任教", ["工号", "班级"], teaching),

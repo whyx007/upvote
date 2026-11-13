@@ -19,13 +19,13 @@ SHEET_GROUPS = "小组"
 SHEET_TEACHING = "任教"
 
 HEADERS = {
-    SHEET_STUDENTS: ["学号", "姓名", "年级", "班级", "入学年份"],
+    SHEET_STUDENTS: ["学号", "姓名", "年级", "班级", "入学年份", "性别"],
     SHEET_TEACHERS: ["工号", "姓名", "手机号", "初始密码", "角色", "学科"],
     SHEET_GROUPS: ["小组名称", "班级", "成员学号"],
     SHEET_TEACHING: ["工号", "班级"],
 }
 EXAMPLES = {
-    SHEET_STUDENTS: ["2026001", "张小明", "初一", "初一1班", 2026],
+    SHEET_STUDENTS: ["2026001", "张小明", "初一", "初一1班", 2026, "男"],
     SHEET_TEACHERS: ["T001", "王老师", "13800000001", "123456", "teacher", "语文"],
     SHEET_GROUPS: ["星辰组", "初一1班", "2026001,2026002"],
     SHEET_TEACHING: ["T001", "初一1班"],
@@ -64,11 +64,15 @@ def _import_students(db: Session, ws) -> dict:
     stat = _new_stat()
     for row_no, row in _data_rows(ws):
         student_no, name, grade, class_name, year = _s(row[0]), _s(row[1]), _s(row[2]), _s(row[3]), row[4]
+        gender = _s(row[5])
         if not student_no:
             stat["errors"].append({"row": row_no, "message": "学号为必填项"})
             continue
         if not name or not class_name:
             stat["errors"].append({"row": row_no, "message": "姓名、班级为必填项"})
+            continue
+        if gender and gender not in ("男", "女"):
+            stat["errors"].append({"row": row_no, "message": f"性别只能为 男 或 女：{gender}"})
             continue
         enrollment_year = None
         if year is not None and _s(year):
@@ -86,6 +90,8 @@ def _import_students(db: Session, ws) -> dict:
             stat["updated"] += 1
         student.name, student.grade, student.class_name = name, grade or None, class_name
         student.enrollment_year = enrollment_year
+        if gender:
+            student.gender = gender
         student.is_active = True
     return stat
 

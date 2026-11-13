@@ -112,3 +112,23 @@ def test_teacher_subject_and_classes_in_list(client, admin_headers, school):
     assert r.json()["subject"] == "数学"
     tid = r.json()["id"]
     assert client.patch(f"/api/teachers/{tid}", headers=admin_headers, json={"subject": "物理"}).json()["subject"] == "物理"
+
+
+def test_student_gender_crud_and_roster(client, admin_headers, school):
+    r = client.post(
+        "/api/students",
+        headers=admin_headers,
+        json={"student_no": "2026099", "name": "新同学", "class_name": "初一1班", "gender": "女"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["gender"] == "女"
+    sid = r.json()["id"]
+    assert client.patch(f"/api/students/{sid}", headers=admin_headers, json={"gender": "男"}).json()["gender"] == "男"
+    bad = client.post(
+        "/api/students",
+        headers=admin_headers,
+        json={"student_no": "2026098", "name": "坏性别", "class_name": "初一1班", "gender": "X"},
+    )
+    assert bad.status_code == 400
+    roster = client.get("/api/classes/初一1班/roster", headers=admin_headers).json()["items"]
+    assert next(x for x in roster if x["student_no"] == "2026099")["gender"] == "男"

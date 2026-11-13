@@ -63,17 +63,17 @@ function selectClass(c) {
 /* ---------- 学生 ---------- */
 const showStudentDialog = ref(false)
 const editingStudent = ref(null)
-const studentForm = ref({ student_no: '', name: '', grade: '', enrollment_year: null })
+const studentForm = ref({ student_no: '', name: '', gender: '', grade: '', enrollment_year: null })
 
 function openStudentCreate() {
   editingStudent.value = null
-  studentForm.value = { student_no: '', name: '', grade: gradeOfClass(className.value), enrollment_year: null }
+  studentForm.value = { student_no: '', name: '', gender: '', grade: gradeOfClass(className.value), enrollment_year: null }
   showStudentDialog.value = true
 }
 
 function openStudentEdit(s) {
   editingStudent.value = s
-  studentForm.value = { student_no: s.student_no, name: s.name, grade: s.grade || '', enrollment_year: s.enrollment_year }
+  studentForm.value = { student_no: s.student_no, name: s.name, gender: s.gender || '', grade: s.grade || '', enrollment_year: s.enrollment_year }
   showStudentDialog.value = true
 }
 
@@ -270,7 +270,11 @@ onMounted(async () => {
           <div v-else class="roster-list">
             <div v-for="s in filteredRoster" :key="s.id" class="roster-row">
               <div class="roster-info">
-                <div class="roster-name">{{ s.name }} <span class="roster-no">{{ s.student_no }}</span></div>
+                <div class="roster-name">
+                  {{ s.name }}
+                  <van-tag v-if="s.gender" :type="s.gender === '男' ? 'primary' : 'danger'" plain size="medium">{{ s.gender }}</van-tag>
+                  <span class="roster-no">{{ s.student_no }}</span>
+                </div>
                 <div class="roster-tags">
                   <van-tag v-for="gname in s.groups" :key="gname" plain type="warning" size="medium">{{ gname }}</van-tag>
                   <span v-if="!s.groups.length" class="muted">未分组</span>
@@ -356,6 +360,14 @@ onMounted(async () => {
     <van-dialog v-model:show="showStudentDialog" :title="editingStudent ? '编辑学生' : `新增学生 · ${className}`" show-cancel-button class="form-dialog" @confirm="saveStudent">
       <van-field v-model="studentForm.student_no" label="学号" placeholder="必填，唯一" :disabled="!!editingStudent" />
       <van-field v-model="studentForm.name" label="姓名" placeholder="必填" />
+      <van-field label="性别">
+        <template #input>
+          <van-radio-group v-model="studentForm.gender" direction="horizontal">
+            <van-radio name="男">男</van-radio>
+            <van-radio name="女">女</van-radio>
+          </van-radio-group>
+        </template>
+      </van-field>
       <van-field :model-value="className" label="班级" disabled />
       <van-field v-model="studentForm.grade" label="年级" placeholder="如：初一" />
       <van-field v-model.number="studentForm.enrollment_year" label="入学年份" type="digit" placeholder="如：2026" />

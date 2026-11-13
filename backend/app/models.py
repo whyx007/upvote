@@ -26,6 +26,7 @@ class Student(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     student_no: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(64))
+    gender: Mapped[str | None] = mapped_column(String(8), nullable=True)  # 男 | 女 | None
     grade: Mapped[str | None] = mapped_column(String(32), nullable=True)
     class_name: Mapped[str] = mapped_column(String(64), index=True)
     enrollment_year: Mapped[int | None] = mapped_column(Integer, nullable=True)

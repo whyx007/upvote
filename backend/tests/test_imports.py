@@ -151,3 +151,26 @@ def test_import_teachers_with_subject(client, admin_headers):
     teachers = client.get("/api/teachers", headers=admin_headers).json()["items"]
     t = next(x for x in teachers if x["employee_no"] == "T001")
     assert t["subject"] == "语文"
+
+
+def test_template_student_sheet_has_gender(client, admin_headers):
+    r = client.get("/api/imports/template", headers=admin_headers)
+    wb = load_workbook(io.BytesIO(r.content))
+    header = [c.value for c in wb["学生"][1]]
+    assert "性别" in header
+
+
+def test_import_students_with_gender(client, admin_headers):
+    content = make_xlsx({"学生": [STUDENT_HEADER + ["性别"], ["2026001", "张小明", "初一", "初一1班", 2026, "男"]]})
+    r = upload(client, admin_headers, content)
+    assert r.json()["students"]["created"] == 1
+    s = client.get("/api/students", headers=admin_headers).json()["items"][0]
+    assert s["gender"] == "男"
+
+
+def test_import_student_invalid_gender_reports_error(client, admin_headers):
+    content = make_xlsx({"学生": [STUDENT_HEADER + ["性别"], ["2026001", "张小明", "初一", "初一1班", 2026, "未知"]]})
+    r = upload(client, admin_headers, content)
+    errors = r.json()["students"]["errors"]
+    assert len(errors) == 1
+    assert "性别" in errors[0]["message"]

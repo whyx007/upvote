@@ -32,6 +32,21 @@ html, body, #app {
   font-weight: 600;
   margin-bottom: 4px;
 }
+.gender-tag {
+  font-size: 11px;
+  font-weight: 400;
+  padding: 1px 6px;
+  border-radius: 8px;
+  vertical-align: middle;
+}
+.gender-tag.boy {
+  background: #e8f3ff;
+  color: #1989fa;
+}
+.gender-tag.girl {
+  background: #ffe8f0;
+  color: #ee0a24;
+}
 .student-card .no {
   font-size: 12px;
   color: #c8c9cc;

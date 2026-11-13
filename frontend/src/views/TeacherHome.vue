@@ -141,7 +141,7 @@ onMounted(async () => {
             <van-empty v-if="!roster.length" description="该班级还没有学生，请先导入" />
             <div class="student-grid">
               <div v-for="s in roster" :key="s.id" class="student-card">
-                <div class="name">{{ s.name }}</div>
+                <div class="name">{{ s.name }} <span v-if="s.gender" class="gender-tag" :class="s.gender === '男' ? 'boy' : 'girl'">{{ s.gender }}</span></div>
                 <div class="no">{{ s.student_no }}</div>
                 <div class="coin-badge">⭐ {{ s.semester_balance }}</div>
                 <van-button class="like-btn" type="warning" round :loading="liking.has(s.id)" @click="likeStudent(s)">👍</van-button>

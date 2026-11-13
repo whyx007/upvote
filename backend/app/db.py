@@ -18,8 +18,14 @@ def make_session_factory(engine):
 def ensure_schema(engine):
     """轻量迁移：为已存在的旧库补齐新增列（SQLite ALTER TABLE ADD COLUMN，幂等）。"""
     inspector = inspect(engine)
-    if "teachers" in inspector.get_table_names():
+    tables = inspector.get_table_names()
+    if "teachers" in tables:
         cols = {c["name"] for c in inspector.get_columns("teachers")}
         if "subject" not in cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE teachers ADD COLUMN subject VARCHAR(32)"))
+    if "students" in tables:
+        cols = {c["name"] for c in inspector.get_columns("students")}
+        if "gender" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE students ADD COLUMN gender VARCHAR(8)"))
