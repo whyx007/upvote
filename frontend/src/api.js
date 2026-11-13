@@ -16,11 +16,26 @@ api.interceptors.response.use(
   (err) => {
     const status = err.response?.status
     const detail = err.response?.data?.detail
+    const url = err.config?.url || ''
+    const isLoginRequest = url.includes('/auth/login')
+
+    // 登录失败：提示真实原因（工号或密码错误），不要误报“请重新登录”
+    if (isLoginRequest) {
+      showToast(typeof detail === 'string' ? detail : '工号或密码错误')
+      return Promise.reject(err)
+    }
+
     if (status === 401) {
       const auth = useAuthStore()
-      auth.logout()
-      router.push('/login')
-      showToast('请重新登录')
+      if (auth.token) {
+        auth.logout()
+        router.push('/login')
+        showToast('登录已过期，请重新登录')
+      } else {
+        showToast(typeof detail === 'string' ? detail : '请先登录')
+      }
+    } else if (status === 403) {
+      showToast(typeof detail === 'string' ? detail : '没有操作权限')
     } else {
       showToast(typeof detail === 'string' ? detail : '操作失败，请重试')
     }
