@@ -112,6 +112,9 @@ const groupName = ref('')
 const pickerShow = ref(false)
 const pickerGroup = ref(null)
 const pickerSelected = ref([])
+const pickerExclude = ref([])
+const undoState = ref(null)
+let undoTimer = null
 
 function openGroupCreate() {
   editingGroup.value = null
@@ -145,25 +148,62 @@ async function saveGroup() {
       showGroupDialog.value = false
       await loadClassData()
       const created = groups.value.find((g) => g.id === data.id)
-      if (created) openMemberPicker(created)
+      if (created) openAddPicker(created)
     }
   } catch {
     /* 拦截器已提示 */
   }
 }
 
-function openMemberPicker(g) {
+// 添加成员：只列出未入组的学生
+function openAddPicker(g) {
   pickerGroup.value = g
-  pickerSelected.value = (g.members || []).map((m) => m.id)
+  pickerExclude.value = (g.members || []).map((m) => m.id)
+  pickerSelected.value = []
   pickerShow.value = true
 }
 
 async function onPickerConfirm(ids) {
+  if (!ids.length) {
+    showToast('请先勾选要添加的学生')
+    return
+  }
   try {
-    const nos = roster.value.filter((s) => ids.includes(s.id)).map((s) => s.student_no)
-    await api.patch(`/groups/${pickerGroup.value.id}`, { member_student_nos: nos })
+    const existing = (pickerGroup.value.members || []).map((m) => m.student_no)
+    const added = roster.value.filter((s) => ids.includes(s.id)).map((s) => s.student_no)
+    await api.patch(`/groups/${pickerGroup.value.id}`, { member_student_nos: [...existing, ...added] })
     pickerShow.value = false
-    showToast('成员已更新')
+    showToast(`已添加 ${added.length} 人`)
+    loadClassData()
+  } catch {
+    /* 拦截器已提示 */
+  }
+}
+
+// 移除成员：直接生效 + 可撤销
+async function removeMember(g, m) {
+  const prevNos = (g.members || []).map((x) => x.student_no)
+  const nos = prevNos.filter((no) => no !== m.student_no)
+  try {
+    await api.patch(`/groups/${g.id}`, { member_student_nos: nos })
+    g.members = g.members.filter((x) => x.id !== m.id)
+    g.member_count = g.members.length
+    undoState.value = { groupId: g.id, groupName: g.name, studentName: m.name, prevNos }
+    clearTimeout(undoTimer)
+    undoTimer = setTimeout(() => (undoState.value = null), 6000)
+  } catch {
+    /* 拦截器已提示 */
+  }
+}
+
+async function undoRemove() {
+  const s = undoState.value
+  if (!s) return
+  undoState.value = null
+  clearTimeout(undoTimer)
+  try {
+    await api.patch(`/groups/${s.groupId}`, { member_student_nos: s.prevNos })
+    showToast('已恢复')
     loadClassData()
   } catch {
     /* 拦截器已提示 */
@@ -292,7 +332,7 @@ onMounted(async () => {
         <van-tab :title="`小组 ${groups.length}`" name="groups">
           <div class="toolbar">
             <van-button size="small" type="warning" icon="plus" @click="openGroupCreate">新增小组</van-button>
-            <span class="muted">同一学生可加入多个小组</span>
+            <span class="muted">点成员后的 × 移除（可撤销）；「＋ 添加成员」从本班未入组学生中选择</span>
           </div>
           <div class="group-cards">
             <div v-for="g in groups" :key="g.id" class="group-card">
@@ -300,16 +340,21 @@ onMounted(async () => {
                 <b>{{ g.name }}</b>
                 <van-tag type="warning" plain size="medium">{{ g.member_count }} 人</van-tag>
                 <div class="spacer"></div>
-                <van-button size="mini" type="warning" plain @click="openMemberPicker(g)">管理成员</van-button>
-                <van-button size="mini" plain icon="edit" @click="openGroupRename(g)" />
-                <van-button size="mini" plain type="danger" icon="delete-o" @click="removeGroup(g)" />
+                <van-button size="mini" plain icon="edit" @click="openGroupRename(g)">改名</van-button>
+                <van-button size="mini" plain type="danger" icon="delete-o" @click="removeGroup(g)">删除</van-button>
               </div>
               <div class="group-members">
-                <van-tag v-for="m in g.members" :key="m.id" size="medium" class="member-chip">{{ m.name }}</van-tag>
-                <span v-if="!g.members || !g.members.length" class="muted">暂无成员，点「管理成员」勾选添加</span>
+                <span v-for="m in g.members" :key="m.id" class="member-chip">
+                  {{ m.name }}
+                  <button class="chip-x" :aria-label="`从${g.name}移除${m.name}`" @click="removeMember(g, m)">×</button>
+                </span>
+                <button class="chip-add" @click="openAddPicker(g)">＋ 添加成员</button>
+              </div>
+              <div v-if="!g.members || !g.members.length" class="muted" style="margin-top: 6px">
+                暂无成员，点「＋ 添加成员」从本班学生中勾选
               </div>
             </div>
-            <van-empty v-if="!groups.length" description="还没有小组，点「新增小组」创建并勾选成员" />
+            <van-empty v-if="!groups.length" description="还没有小组，点「新增小组」创建并添加成员" />
           </div>
         </van-tab>
 
@@ -379,14 +424,23 @@ onMounted(async () => {
       <div v-if="!editingGroup" class="muted" style="padding: 8px 16px">创建后将自动打开成员勾选器</div>
     </van-dialog>
 
-    <!-- 成员勾选器 -->
+    <!-- 添加成员（仅未入组学生） -->
     <MemberPicker
       v-model:show="pickerShow"
-      :title="`管理成员 · ${pickerGroup ? pickerGroup.name : ''}`"
+      :title="`添加成员到「${pickerGroup ? pickerGroup.name : ''}」`"
       :students="roster"
       :selected="pickerSelected"
+      :exclude-ids="pickerExclude"
       @confirm="onPickerConfirm"
     />
+
+    <!-- 移除成员撤销条 -->
+    <transition name="van-slide-up">
+      <div v-if="undoState" class="undo-snackbar">
+        <span>已从「{{ undoState.groupName }}」移除 {{ undoState.studentName }}</span>
+        <button class="undo-btn" @click="undoRemove">撤销</button>
+      </div>
+    </transition>
 
     <!-- 指派教师 -->
     <van-dialog v-model:show="showAssignDialog" :title="`指派教师到 ${className}`" :show-confirm-button="false" class="form-dialog">
