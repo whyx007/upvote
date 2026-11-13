@@ -1,0 +1,21 @@
+# VPS 部署专用：只跑应用容器，不启 Caddy（宿主机 Caddy 占用 80/443，给 whyx.site 用）
+# 端口 9100 给本应用（9000 已被 eating-test 的 daily-food 占用）
+services:
+  upvote:
+    build: .
+    image: upvote:latest
+    container_name: upvote
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      UPVOTE_DATABASE_URL: sqlite:////app/data/upvote.db
+    ports:
+      - "9100:8000"
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
