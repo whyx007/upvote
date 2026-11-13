@@ -5,16 +5,37 @@ import api from '../../api'
 import { SUBJECTS, GRADE_ORDER, gradeOfClass } from '../../constants'
 
 const teachers = ref([])
+const allClasses = ref([])
 const q = ref('')
 const showDialog = ref(false)
 const editing = ref(null)
-const form = ref({ employee_no: '', name: '', phone: '', role: 'teacher', subject: '', password: '' })
+const form = ref({ employee_no: '', name: '', phone: '', role: 'teacher', subject: '', password: '', classes: [] })
 const showSubjectPicker = ref(false)
 const subjectColumns = SUBJECTS.map((s) => ({ text: s, value: s }))
 
 async function load() {
   const { data } = await api.get('/teachers', { params: { page_size: 500 } })
   teachers.value = data.items
+}
+
+async function loadClasses() {
+  const { data } = await api.get('/classes')
+  allClasses.value = data
+}
+
+const classOptions = computed(() => {
+  const map = {}
+  for (const c of allClasses.value) {
+    const g = gradeOfClass(c) || '其他'
+    ;(map[g] = map[g] || []).push(c)
+  }
+  return [...GRADE_ORDER, '其他'].filter((g) => map[g]).map((g) => ({ grade: g, classes: map[g] }))
+})
+
+function toggleClass(c) {
+  const i = form.value.classes.indexOf(c)
+  if (i >= 0) form.value.classes.splice(i, 1)
+  else form.value.classes.push(c)
 }
 
 const filtered = computed(() =>
@@ -50,25 +71,30 @@ const grouped = computed(() => {
 
 function openCreate() {
   editing.value = null
-  form.value = { employee_no: '', name: '', phone: '', role: 'teacher', subject: '', password: '' }
+  form.value = { employee_no: '', name: '', phone: '', role: 'teacher', subject: '', password: '', classes: [] }
   showDialog.value = true
 }
 
 function openEdit(t) {
   editing.value = t
-  form.value = { employee_no: t.employee_no, name: t.name, phone: t.phone || '', role: t.role, subject: t.subject || '', password: '' }
+  form.value = { employee_no: t.employee_no, name: t.name, phone: t.phone || '', role: t.role, subject: t.subject || '', password: '', classes: [...(t.classes || [])] }
   showDialog.value = true
 }
 
 async function save() {
   try {
     const body = { ...form.value, subject: form.value.subject || null }
+    delete body.classes
     if (!body.password) delete body.password
+    let id
     if (editing.value) {
       await api.patch(`/teachers/${editing.value.id}`, body)
+      id = editing.value.id
     } else {
-      await api.post('/teachers', body)
+      const { data } = await api.post('/teachers', body)
+      id = data.id
     }
+    await api.put(`/teachers/${id}/classes`, { class_names: form.value.classes })
     showToast('已保存')
     showDialog.value = false
     load()
@@ -93,7 +119,10 @@ function onSubjectConfirm({ selectedValues }) {
   showSubjectPicker.value = false
 }
 
-onMounted(load)
+onMounted(() => {
+  load()
+  loadClasses()
+})
 </script>
 
 <template>
@@ -142,6 +171,35 @@ onMounted(load)
         </template>
       </van-field>
       <van-field v-model="form.password" type="password" label="密码" :placeholder="editing ? '留空则不修改' : '留空默认 123456'" />
+      <van-field label="任教班级">
+        <template #input>
+          <div class="class-picker-wrap">
+            <div v-if="form.classes.length" class="selected-classes">
+              <span v-for="c in form.classes" :key="c" class="member-chip">
+                {{ c }}
+                <button type="button" class="chip-x" :aria-label="`移除${c}`" @click="toggleClass(c)">×</button>
+              </span>
+            </div>
+            <div class="class-picker-inline">
+              <div v-for="g in classOptions" :key="g.grade" class="class-picker-grade">
+                <span class="grade-label">{{ g.grade }}</span>
+                <button
+                  v-for="c in g.classes"
+                  :key="c"
+                  type="button"
+                  class="class-toggle"
+                  :class="{ on: form.classes.includes(c) }"
+                  @click="toggleClass(c)"
+                >
+                  {{ c.replace(g.grade, '') }}
+                </button>
+              </div>
+              <div v-if="!allClasses.length" class="muted">暂无班级，请先导入学生数据</div>
+            </div>
+            <div class="muted" style="margin-top: 4px">点击班级编号选中/取消，× 移除已选</div>
+          </div>
+        </template>
+      </van-field>
     </van-dialog>
 
     <van-popup v-model:show="showSubjectPicker" position="bottom" round>

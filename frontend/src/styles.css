@@ -352,6 +352,68 @@ html, body, #app {
 .undo-btn:hover {
   background: #ffc062;
 }
+
+/* 教师编辑：任教班级多选 */
+.class-picker-wrap {
+  width: 100%;
+}
+.selected-classes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.class-picker-inline {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #ebedf0;
+  border-radius: 10px;
+  padding: 8px;
+  background: #fafbfc;
+}
+.class-picker-grade {
+  margin-bottom: 8px;
+}
+.class-picker-grade:last-child {
+  margin-bottom: 0;
+}
+.grade-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ff9f43;
+  margin-bottom: 4px;
+}
+.class-toggle {
+  border: 1px solid #ebedf0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 5px 10px;
+  margin: 0 6px 6px 0;
+  font-size: 13px;
+  color: #323233;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.class-toggle:hover {
+  border-color: #ffb03a;
+}
+.class-toggle.on {
+  background: #ff9f43;
+  border-color: #ff9f43;
+  color: #fff;
+  font-weight: 600;
+}
+.class-picker-inline::-webkit-scrollbar {
+  width: 6px;
+}
+.class-picker-inline::-webkit-scrollbar-thumb {
+  background: #ffd8a8;
+  border-radius: 3px;
+}
+.class-picker-inline::-webkit-scrollbar-track {
+  background: #fff7e8;
+}
 .subject-section {
   margin-bottom: 8px;
 }

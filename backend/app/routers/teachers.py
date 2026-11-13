@@ -30,6 +30,10 @@ class TeacherPatch(BaseModel):
     password: str | None = Field(None, min_length=6)
 
 
+class TeacherClassesIn(BaseModel):
+    class_names: list[str]
+
+
 def _classes_by_teacher(db: Session, teacher_ids: list[int]) -> dict[int, list[str]]:
     if not teacher_ids:
         return {}
@@ -122,3 +126,19 @@ def deactivate_teacher(teacher_id: int, admin=Depends(require_admin), db: Sessio
     teacher.is_active = False
     db.commit()
     return {"ok": True}
+
+
+@router.put("/teachers/{teacher_id}/classes")
+def set_teacher_classes(teacher_id: int, body: TeacherClassesIn, admin=Depends(require_admin), db: Session = Depends(get_db)):
+    """原子化替换教师的任教班级（增删一次完成）。"""
+    teacher = db.get(Teacher, teacher_id)
+    if teacher is None:
+        raise HTTPException(status_code=404, detail="教师不存在")
+    for tc in db.scalars(select(TeacherClass).where(TeacherClass.teacher_id == teacher_id)).all():
+        db.delete(tc)
+    db.flush()
+    for class_name in sorted(set(body.class_names)):
+        if class_name.strip():
+            db.add(TeacherClass(teacher_id=teacher_id, class_name=class_name.strip()))
+    db.commit()
+    return _serialize_full(db, teacher)
