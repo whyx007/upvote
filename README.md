@@ -44,6 +44,8 @@ pwsh -File scripts\serve.ps1
 
 ## 生产部署（Docker）
 
+### 方式一：单机 docker compose（自带 Caddy 自动 HTTPS）
+
 ```bash
 cp .env.example .env    # 设置 UPVOTE_SECRET_KEY（随机 64 位 hex）
 docker compose up -d --build
@@ -52,6 +54,27 @@ docker compose up -d --build
 - 设置 `.env` 中 `DOMAIN=你的域名` → Caddy 自动申请 HTTPS 证书
 - 校内部署可不设域名（监听 :80），建议配合校园网/IP 白名单
 - 数据持久化在 `./data/upvote.db`
+
+### 方式二：已有 Caddy/反代的 VPS（只跑应用容器）
+
+```bash
+# 宿主机需已安装 docker + compose；端口 9100 需在云安全组放行
+cp .env.example .env    # 写入 UPVOTE_SECRET_KEY
+docker compose -f docker-compose.vps.yml up -d --build
+```
+
+`docker-compose.vps.yml` 只启动应用容器（`9100 -> 8000`），不占 80/443，适合已有 Caddy/Nginx 的服务器；
+数据在 `./data/upvote.db`，容器带健康检查与 `restart: unless-stopped`。
+
+从本机一条命令推送并重建（git bundle 传输，不依赖 GitHub 可达）：
+
+```bash
+DSH_SSH_PASSWORD=... python scripts/deploy_vps.py            # 完整部署/更新
+DSH_SSH_PASSWORD=... python scripts/deploy_vps.py --dry      # 只探测远端环境
+```
+
+**已上线实例**：`http://43.133.86.206:9100`（腾讯云 Ubuntu 22.04，容器 `upvote`，
+代码在 `/opt/upvote`，数据 `/opt/upvote/data/upvote.db`；9000 端口为同机另一个项目，80/443 由系统 Caddy 占用）。
 
 ### 每日备份
 
