@@ -5,8 +5,12 @@ import api from '../../api'
 import MemberPicker from '../../components/MemberPicker.vue'
 import { GRADE_ORDER, gradeOfClass } from '../../constants'
 
+const props = defineProps({
+  managedOnly: { type: Boolean, default: false }
+})
 const classes = ref([])
 const className = ref('')
+const dutyMap = ref({})
 const showClassPopup = ref(false)
 const tab = ref('students')
 const roster = ref([])
@@ -30,10 +34,21 @@ const filteredRoster = computed(() => {
   return roster.value.filter((s) => s.name.includes(q) || s.student_no.includes(q))
 })
 
+const currentDuty = computed(() => dutyMap.value[className.value] || '')
+const canManageTeachers = computed(() => !props.managedOnly || currentDuty.value === 'head')
+const dutyLabels = { teacher: '任课教师', head: '班主任', deputy: '副班主任' }
+const dutyLabel = (duty) => dutyLabels[duty] || '任课教师'
+
 async function loadClasses() {
-  const { data } = await api.get('/classes')
-  classes.value = data
-  if (!className.value && data.length) className.value = data[0]
+  if (props.managedOnly) {
+    const { data } = await api.get('/my/class-roles')
+    classes.value = data.items.map((item) => item.class_name)
+    dutyMap.value = Object.fromEntries(data.items.map((item) => [item.class_name, item.duty]))
+  } else {
+    const { data } = await api.get('/classes')
+    classes.value = data
+  }
+  if (!className.value && classes.value.length) className.value = classes.value[0]
 }
 
 async function loadClassData() {
@@ -225,12 +240,16 @@ async function removeGroup(g) {
 const showAssignDialog = ref(false)
 const allTeachers = ref([])
 const teacherSearch = ref('')
+const assignDuty = ref('teacher')
 
 async function openAssign() {
   try {
-    const { data } = await api.get('/teachers', { params: { page_size: 500 } })
+    const { data } = props.managedOnly
+      ? await api.get('/teachers/options')
+      : await api.get('/teachers', { params: { page_size: 500 } })
     allTeachers.value = data.items.filter((t) => t.is_active)
     teacherSearch.value = ''
+    assignDuty.value = 'teacher'
     showAssignDialog.value = true
   } catch {
     /* 拦截器已提示 */
@@ -247,8 +266,11 @@ const assignCandidates = computed(() => {
 
 async function assignTeacher(t) {
   try {
-    await api.post(`/classes/${encodeURIComponent(className.value)}/teachers`, { teacher_id: t.id })
-    showToast(`${t.name} 已任教本班`)
+    await api.post(`/classes/${encodeURIComponent(className.value)}/teachers`, {
+      teacher_id: t.id,
+      duty: assignDuty.value
+    })
+    showToast(`${t.name} 已设为${dutyLabel(assignDuty.value)}`)
     showAssignDialog.value = false
     loadClassData()
   } catch {
@@ -360,25 +382,30 @@ onMounted(async () => {
 
         <van-tab :title="`教师 ${classTeachers.length}`" name="teachers">
           <div class="toolbar">
-            <van-button size="small" type="warning" icon="plus" @click="openAssign">指派教师</van-button>
-            <span class="muted">移除任课不会删除教师账号</span>
+            <template v-if="canManageTeachers">
+              <van-button size="small" type="warning" icon="plus" @click="openAssign">指派教师 / 设置角色</van-button>
+              <span class="muted">每班最多 1 名班主任、1 名副班主任</span>
+            </template>
+            <span v-else class="muted">仅班主任可以调整本班任课教师</span>
           </div>
           <div class="student-grid-admin">
-            <div v-for="t in classTeachers" :key="t.id" class="student-tile">
+            <div v-for="t in classTeachers" :key="t.id" class="student-tile" :class="{ 'duty-head': t.duty === 'head', 'duty-deputy': t.duty === 'deputy' }">
               <div class="st-head">
                 <span class="st-name">{{ t.name }}</span>
+                <van-tag v-if="t.duty === 'head'" type="warning" size="medium">班主任</van-tag>
+                <van-tag v-else-if="t.duty === 'deputy'" type="success" size="medium">副班主任</van-tag>
                 <van-tag v-if="t.role === 'admin'" type="primary" plain size="medium">管理员</van-tag>
               </div>
               <div class="st-no">{{ t.employee_no }}</div>
               <div class="st-groups">
                 <span class="st-group subject">{{ t.subject || '未设学科' }}</span>
               </div>
-              <div class="st-actions">
+              <div v-if="canManageTeachers" class="st-actions">
                 <van-button size="mini" plain type="danger" icon="delete-o" @click="removeClassTeacher(t)">移除任课</van-button>
               </div>
             </div>
           </div>
-          <van-empty v-if="!classTeachers.length" description="还没有任课教师，点「指派教师」添加" />
+          <van-empty v-if="!classTeachers.length" description="还没有任课教师" />
         </van-tab>
       </van-tabs>
     </main>
@@ -444,8 +471,18 @@ onMounted(async () => {
       </div>
     </transition>
 
-    <!-- 指派教师 -->
+    <!-- 指派教师 / 设置班级角色 -->
     <van-dialog v-model:show="showAssignDialog" :title="`指派教师到 ${className}`" :show-confirm-button="false" class="form-dialog">
+      <van-field label="班级角色">
+        <template #input>
+          <van-radio-group v-model="assignDuty" direction="horizontal">
+            <van-radio name="teacher">任课教师</van-radio>
+            <van-radio name="head">班主任</van-radio>
+            <van-radio name="deputy">副班主任</van-radio>
+          </van-radio-group>
+        </template>
+      </van-field>
+      <div class="muted" style="padding: 0 16px 8px">选择身份后点击教师；新任命的同名角色会自动替换原角色</div>
       <van-search v-model="teacherSearch" placeholder="搜索姓名 / 工号 / 学科" />
       <div class="assign-list">
         <van-cell
@@ -453,7 +490,7 @@ onMounted(async () => {
           :key="t.id"
           :title="`${t.name}（${t.employee_no}）${assignedIds.has(t.id) ? ' · 已任教本班' : ''}`"
           :label="`${t.subject || '未设学科'} · ${(t.classes || []).join('、') || '暂无任教'}`"
-          :is-link="!assignedIds.has(t.id)"
+          is-link
           @click="assignTeacher(t)"
         />
         <van-empty v-if="!assignCandidates.length" description="没有匹配的教师" />

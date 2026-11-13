@@ -29,3 +29,8 @@ def ensure_schema(engine):
         if "gender" not in cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE students ADD COLUMN gender VARCHAR(8)"))
+    if "teacher_classes" in tables:
+        cols = {c["name"] for c in inspector.get_columns("teacher_classes")}
+        if "duty" not in cols:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE teacher_classes ADD COLUMN duty VARCHAR(16) DEFAULT 'teacher'"))

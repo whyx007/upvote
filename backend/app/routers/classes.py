@@ -5,7 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..models import Group, GroupMember, Semester, Student, Teacher, TeacherClass
-from ..security import get_current_teacher, get_db, require_admin
+from ..security import get_current_teacher, get_db
+from ..services.class_roles import assert_class_manager, normalize_duty, set_class_teacher
 from ..services.points import balances_for_students
 from .auth import serialize_teacher
 from .semesters import current_semester
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/classes", tags=["classes"])
 
 class AssignTeacherIn(BaseModel):
     teacher_id: int
+    duty: str = "teacher"
 
 
 @router.get("")
@@ -26,31 +28,43 @@ def list_classes(teacher=Depends(get_current_teacher), db: Session = Depends(get
 
 @router.get("/{class_name}/teachers")
 def class_teachers(class_name: str, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
-    teachers = db.scalars(
-        select(Teacher)
+    rows = db.execute(
+        select(Teacher, TeacherClass.duty)
         .join(TeacherClass, TeacherClass.teacher_id == Teacher.id)
         .where(TeacherClass.class_name == class_name, Teacher.is_active.is_(True))
         .order_by(Teacher.employee_no)
     ).all()
-    return {"items": [serialize_teacher(t) for t in teachers]}
+    return {"items": [{**serialize_teacher(t), "duty": duty} for t, duty in rows]}
 
 
 @router.post("/{class_name}/teachers")
-def assign_class_teacher(class_name: str, body: AssignTeacherIn, admin=Depends(require_admin), db: Session = Depends(get_db)):
-    t = db.get(Teacher, body.teacher_id)
-    if t is None:
+def assign_class_teacher(
+    class_name: str,
+    body: AssignTeacherIn,
+    teacher=Depends(get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    assert_class_manager(db, teacher, class_name, teacher_management=True)
+    target = db.get(Teacher, body.teacher_id)
+    if target is None:
         raise HTTPException(status_code=404, detail="教师不存在")
-    exists = db.scalar(
-        select(TeacherClass).where(TeacherClass.teacher_id == t.id, TeacherClass.class_name == class_name)
-    )
-    if exists is None:
-        db.add(TeacherClass(teacher_id=t.id, class_name=class_name))
-        db.commit()
-    return {"ok": True}
+    try:
+        duty = normalize_duty(body.duty)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    assignment = set_class_teacher(db, target.id, class_name, duty)
+    db.commit()
+    return {"ok": True, "teacher_id": target.id, "duty": assignment.duty}
 
 
 @router.delete("/{class_name}/teachers/{teacher_id}")
-def remove_class_teacher(class_name: str, teacher_id: int, admin=Depends(require_admin), db: Session = Depends(get_db)):
+def remove_class_teacher(
+    class_name: str,
+    teacher_id: int,
+    teacher=Depends(get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    assert_class_manager(db, teacher, class_name, teacher_management=True)
     tc = db.scalar(
         select(TeacherClass).where(TeacherClass.teacher_id == teacher_id, TeacherClass.class_name == class_name)
     )

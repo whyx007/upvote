@@ -174,3 +174,12 @@ def test_import_student_invalid_gender_reports_error(client, admin_headers):
     errors = r.json()["students"]["errors"]
     assert len(errors) == 1
     assert "性别" in errors[0]["message"]
+
+
+def test_import_teaching_with_class_duty(client, admin_headers):
+    upload(client, admin_headers, make_xlsx({"教师": [TEACHER_HEADER, ["T001", "王老师", None, None, None]]}))
+    r = upload(client, admin_headers, make_xlsx({"任教": [TEACHING_HEADER + ["角色"], ["T001", "初一1班", "班主任"]]}))
+    assert r.status_code == 200, r.text
+    assert r.json()["teaching"]["created"] == 1
+    items = client.get("/api/classes/初一1班/teachers", headers=admin_headers).json()["items"]
+    assert items[0]["duty"] == "head"

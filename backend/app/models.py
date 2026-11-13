@@ -59,6 +59,7 @@ class TeacherClass(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     teacher_id: Mapped[int] = mapped_column(ForeignKey("teachers.id"), index=True)
     class_name: Mapped[str] = mapped_column(String(64))
+    duty: Mapped[str] = mapped_column(String(16), default="teacher")  # teacher | head | deputy
 
 
 class ImportBatch(Base):

@@ -4,7 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import Group, GroupMember, Student
-from ..security import get_current_teacher, get_db, require_admin
+from ..security import get_current_teacher, get_db
+from ..services.class_roles import assert_class_manager
 
 router = APIRouter(prefix="/api/groups", tags=["groups"])
 
@@ -21,17 +22,22 @@ class GroupPatch(BaseModel):
     member_student_nos: list[str] | None = None
 
 
-def _resolve_members(db: Session, student_nos: list[str]) -> list[Student]:
+def _resolve_members(db: Session, student_nos: list[str], class_name: str) -> list[Student]:
     students = []
     missing = []
+    wrong_class = []
     for no in student_nos:
         student = db.scalar(select(Student).where(Student.student_no == no))
         if student is None:
             missing.append(no)
+        elif student.class_name != class_name:
+            wrong_class.append(no)
         else:
             students.append(student)
     if missing:
         raise HTTPException(status_code=400, detail=f"成员学号不存在：{','.join(missing)}")
+    if wrong_class:
+        raise HTTPException(status_code=400, detail=f"成员不属于本班：{','.join(wrong_class)}")
     return students
 
 
@@ -67,10 +73,11 @@ def list_groups(
 
 
 @router.post("")
-def create_group(body: GroupIn, admin=Depends(require_admin), db: Session = Depends(get_db)):
+def create_group(body: GroupIn, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    assert_class_manager(db, teacher, body.class_name)
     if db.scalar(select(Group).where(Group.name == body.name, Group.class_name == body.class_name)):
         raise HTTPException(status_code=400, detail="同班级下小组名称已存在")
-    students = _resolve_members(db, body.member_student_nos)
+    students = _resolve_members(db, body.member_student_nos, body.class_name)
     group = Group(name=body.name, class_name=body.class_name)
     db.add(group)
     db.flush()
@@ -81,16 +88,20 @@ def create_group(body: GroupIn, admin=Depends(require_admin), db: Session = Depe
 
 
 @router.patch("/{group_id}")
-def update_group(group_id: int, body: GroupPatch, admin=Depends(require_admin), db: Session = Depends(get_db)):
+def update_group(group_id: int, body: GroupPatch, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     group = db.get(Group, group_id)
     if group is None:
         raise HTTPException(status_code=404, detail="小组不存在")
+    assert_class_manager(db, teacher, group.class_name)
     data = body.model_dump(exclude_unset=True)
+    if teacher.role != "admin" and data.get("class_name") not in (None, group.class_name):
+        raise HTTPException(status_code=403, detail="班级管理角色不能将小组转到其他班级")
     member_nos = data.pop("member_student_nos", None)
+    target_class = data.get("class_name", group.class_name)
     for field, value in data.items():
         setattr(group, field, value)
     if member_nos is not None:
-        students = _resolve_members(db, member_nos)
+        students = _resolve_members(db, member_nos, target_class)
         for m in db.scalars(select(GroupMember).where(GroupMember.group_id == group.id)).all():
             db.delete(m)
         db.flush()
@@ -101,10 +112,11 @@ def update_group(group_id: int, body: GroupPatch, admin=Depends(require_admin), 
 
 
 @router.delete("/{group_id}")
-def delete_group(group_id: int, admin=Depends(require_admin), db: Session = Depends(get_db)):
+def delete_group(group_id: int, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     group = db.get(Group, group_id)
     if group is None:
         raise HTTPException(status_code=404, detail="小组不存在")
+    assert_class_manager(db, teacher, group.class_name)
     for m in db.scalars(select(GroupMember).where(GroupMember.group_id == group.id)).all():
         db.delete(m)
     db.delete(group)

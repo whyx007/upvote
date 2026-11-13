@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Student, Teacher, TeacherClass
 from ..security import get_current_teacher, get_db, hash_password, require_admin
+from ..services.class_roles import CLASS_MANAGER_DUTIES, assert_any_class_manager
 from .auth import serialize_teacher
 
 router = APIRouter(prefix="/api", tags=["teachers"])
@@ -58,6 +59,39 @@ def my_classes(teacher=Depends(get_current_teacher), db: Session = Depends(get_d
     else:
         classes = db.scalars(select(TeacherClass.class_name).where(TeacherClass.teacher_id == teacher.id)).all()
     return sorted(set(classes))
+
+
+@router.get("/my/class-roles")
+def my_class_roles(teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    if teacher.role == "admin":
+        return {"items": []}
+    rows = db.execute(
+        select(TeacherClass.class_name, TeacherClass.duty)
+        .where(TeacherClass.teacher_id == teacher.id, TeacherClass.duty.in_(CLASS_MANAGER_DUTIES))
+        .order_by(TeacherClass.class_name)
+    ).all()
+    return {"items": [{"class_name": class_name, "duty": duty} for class_name, duty in rows]}
+
+
+@router.get("/teachers/options")
+def teacher_options(teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    """Limited teacher options for class managers; no phone/account role exposure."""
+    assert_any_class_manager(db, teacher)
+    teachers = db.scalars(select(Teacher).where(Teacher.is_active.is_(True)).order_by(Teacher.employee_no)).all()
+    classes_map = _classes_by_teacher(db, [t.id for t in teachers])
+    return {
+        "items": [
+            {
+                "id": t.id,
+                "employee_no": t.employee_no,
+                "name": t.name,
+                "subject": t.subject,
+                "is_active": t.is_active,
+                "classes": classes_map.get(t.id, []),
+            }
+            for t in teachers
+        ]
+    }
 
 
 @router.get("/teachers")
@@ -130,15 +164,20 @@ def deactivate_teacher(teacher_id: int, admin=Depends(require_admin), db: Sessio
 
 @router.put("/teachers/{teacher_id}/classes")
 def set_teacher_classes(teacher_id: int, body: TeacherClassesIn, admin=Depends(require_admin), db: Session = Depends(get_db)):
-    """原子化替换教师的任教班级（增删一次完成）。"""
+    """原子化替换教师的任教班级；保留未变班级上的班主任/副班主任角色。"""
     teacher = db.get(Teacher, teacher_id)
     if teacher is None:
         raise HTTPException(status_code=404, detail="教师不存在")
-    for tc in db.scalars(select(TeacherClass).where(TeacherClass.teacher_id == teacher_id)).all():
-        db.delete(tc)
+    desired = {name.strip() for name in body.class_names if name.strip()}
+    existing = {
+        tc.class_name: tc
+        for tc in db.scalars(select(TeacherClass).where(TeacherClass.teacher_id == teacher_id)).all()
+    }
+    for class_name, tc in existing.items():
+        if class_name not in desired:
+            db.delete(tc)
     db.flush()
-    for class_name in sorted(set(body.class_names)):
-        if class_name.strip():
-            db.add(TeacherClass(teacher_id=teacher_id, class_name=class_name.strip()))
+    for class_name in sorted(desired - set(existing)):
+        db.add(TeacherClass(teacher_id=teacher_id, class_name=class_name, duty="teacher"))
     db.commit()
     return _serialize_full(db, teacher)

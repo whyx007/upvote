@@ -931,6 +931,14 @@ html, body, #app {
 .student-tile.inactive {
   opacity: 0.55;
 }
+.student-tile.duty-head {
+  border-color: #ffd18a;
+  background: linear-gradient(180deg, #fffaf0, #fff);
+}
+.student-tile.duty-deputy {
+  border-color: #b9e7c7;
+  background: linear-gradient(180deg, #f4fff7, #fff);
+}
 .st-actions {
   display: flex;
   gap: 6px;

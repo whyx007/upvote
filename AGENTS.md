@@ -14,9 +14,10 @@
 - 需求来源：飞书纪要 `XPffdEk60o4CPLxvmVActYeinZe` 及文字记录 `Sx30dly9cox81SxB6V2ceFMpnGg`（缓存于 `.feishu/`）。
 - 设计文档：`docs/superpowers/specs/2026-11-13-upvote-design.md`。
 - 开发约定：后端 pytest TDD；`data/` 存放 SQLite 与备份，不入库。
+- 班级权限：`teacher_classes.duty = teacher/head/deputy`；班主任可管本班学生、小组、任课教师，副班主任仅学生/小组，管理员全权；权限校验集中在 `app/services/class_roles.py`。
 
 ## 常用命令
-- 后端测试：`cd backend; E:\code\upvote\.venv\Scripts\python.exe -m pytest`（91 测试）
+- 后端测试：`cd backend; E:\code\upvote\.venv\Scripts\python.exe -m pytest`（108 测试）
 - 启动服务：`cd backend; ..\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --port 8000`
 - 前端构建：`cd frontend; & '<node>' '<pnpm.mjs>' build`（Node/pnpm 用 DSH 运行时路径，见 load_workspace_dependencies）
 - 端到端冒烟：`python scripts/smoke.py`（需全新数据库的运行中服务，24 项）

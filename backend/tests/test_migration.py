@@ -39,3 +39,18 @@ def test_migration_adds_gender_to_old_students_table(tmp_path):
     cols = [c["name"] for c in inspect(engine).get_columns("students")]
     assert "gender" in cols
     engine.dispose()
+
+
+def test_migration_adds_duty_to_old_teacher_classes_table(tmp_path):
+    db_file = tmp_path / "old3.db"
+    engine = create_engine(f"sqlite:///{db_file}")
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                "CREATE TABLE teacher_classes (id INTEGER PRIMARY KEY, teacher_id INTEGER, class_name VARCHAR(64))"
+            )
+        )
+    ensure_schema(engine)
+    cols = [c["name"] for c in inspect(engine).get_columns("teacher_classes")]
+    assert "duty" in cols
+    engine.dispose()

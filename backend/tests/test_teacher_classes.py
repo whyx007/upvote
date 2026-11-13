@@ -42,3 +42,11 @@ def test_set_teacher_classes_requires_admin(client, admin_headers, school):
 def test_set_teacher_classes_unknown_teacher_404(client, admin_headers):
     r = client.put("/api/teachers/99999/classes", headers=admin_headers, json={"class_names": []})
     assert r.status_code == 404
+
+
+def test_set_teacher_classes_preserves_existing_duty(client, admin_headers, school):
+    tid = _teacher_id(client, admin_headers, "T001")
+    client.post(f"/api/classes/初一1班/teachers", headers=admin_headers, json={"teacher_id": tid, "duty": "head"})
+    client.put(f"/api/teachers/{tid}/classes", headers=admin_headers, json={"class_names": ["初一1班", "初一2班"]})
+    items = client.get("/api/classes/初一1班/teachers", headers=admin_headers).json()["items"]
+    assert next(t for t in items if t["id"] == tid)["duty"] == "head"

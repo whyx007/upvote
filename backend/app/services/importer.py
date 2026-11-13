@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Group, GroupMember, ImportBatch, Student, Teacher, TeacherClass
 from ..security import hash_password
+from .class_roles import get_assignment, normalize_duty, set_class_teacher
 
 SHEET_STUDENTS = "学生"
 SHEET_TEACHERS = "教师"
@@ -22,13 +23,13 @@ HEADERS = {
     SHEET_STUDENTS: ["学号", "姓名", "年级", "班级", "入学年份", "性别"],
     SHEET_TEACHERS: ["工号", "姓名", "手机号", "初始密码", "角色", "学科"],
     SHEET_GROUPS: ["小组名称", "班级", "成员学号"],
-    SHEET_TEACHING: ["工号", "班级"],
+    SHEET_TEACHING: ["工号", "班级", "角色"],
 }
 EXAMPLES = {
     SHEET_STUDENTS: ["2026001", "张小明", "初一", "初一1班", 2026, "男"],
     SHEET_TEACHERS: ["T001", "王老师", "13800000001", "123456", "teacher", "语文"],
     SHEET_GROUPS: ["星辰组", "初一1班", "2026001,2026002"],
-    SHEET_TEACHING: ["T001", "初一1班"],
+    SHEET_TEACHING: ["T001", "初一1班", "任课教师"],
 }
 DEFAULT_TEACHER_PASSWORD = "123456"
 
@@ -160,7 +161,7 @@ def _import_groups(db: Session, ws) -> dict:
 def _import_teaching(db: Session, ws) -> dict:
     stat = _new_stat()
     for row_no, row in _data_rows(ws):
-        employee_no, class_name = _s(row[0]), _s(row[1])
+        employee_no, class_name, duty_raw = _s(row[0]), _s(row[1]), _s(row[2])
         if not employee_no or not class_name:
             stat["errors"].append({"row": row_no, "message": "工号、班级为必填项"})
             continue
@@ -168,11 +169,15 @@ def _import_teaching(db: Session, ws) -> dict:
         if teacher is None:
             stat["errors"].append({"row": row_no, "message": f"工号不存在：{employee_no}"})
             continue
-        exists = db.scalar(
-            select(TeacherClass).where(TeacherClass.teacher_id == teacher.id, TeacherClass.class_name == class_name)
-        )
-        if exists is None:
-            db.add(TeacherClass(teacher_id=teacher.id, class_name=class_name))
+        try:
+            duty = normalize_duty(duty_raw, preserve_when_empty=True)
+        except ValueError as e:
+            stat["errors"].append({"row": row_no, "message": str(e)})
+            continue
+        existing = get_assignment(db, teacher.id, class_name)
+        effective_duty = duty or (existing.duty if existing else "teacher")
+        set_class_teacher(db, teacher.id, class_name, effective_duty)
+        if existing is None:
             stat["created"] += 1
         else:
             stat["updated"] += 1

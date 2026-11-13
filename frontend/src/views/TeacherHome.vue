@@ -3,10 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { showToast } from 'vant'
 import api from '../api'
 import UserMenu from '../components/UserMenu.vue'
+import ClassWorkspace from './admin/ClassWorkspace.vue'
 
 const classes = ref([])
 const className = ref('')
 const semester = ref(null)
+const managedRoles = ref([])
 const showClassPicker = ref(false)
 const roster = ref([])
 const groups = ref([])
@@ -137,8 +139,13 @@ function avatarText(name) {
 }
 
 onMounted(async () => {
-  const [{ data: currentSemester }] = await Promise.all([api.get('/semesters/current'), loadClasses()])
-  semester.value = currentSemester
+  const [semesterResponse, , rolesResponse] = await Promise.all([
+    api.get('/semesters/current'),
+    loadClasses(),
+    api.get('/my/class-roles')
+  ])
+  semester.value = semesterResponse.data
+  managedRoles.value = rolesResponse.data.items
   await loadAll()
 })
 </script>
@@ -255,6 +262,10 @@ onMounted(async () => {
           </div>
           <van-empty v-if="!ranked.length" description="暂无排行数据" />
         </section>
+      </van-tab>
+
+      <van-tab v-if="managedRoles.length" title="班级管理" name="manage">
+        <ClassWorkspace managed-only />
       </van-tab>
     </van-tabs>
 

@@ -4,7 +4,8 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from ..models import Student
-from ..security import get_current_teacher, get_db, require_admin
+from ..security import get_current_teacher, get_db
+from ..services.class_roles import assert_class_manager
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 
@@ -68,7 +69,8 @@ def list_students(
 
 
 @router.post("")
-def create_student(body: StudentIn, admin=Depends(require_admin), db: Session = Depends(get_db)):
+def create_student(body: StudentIn, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    assert_class_manager(db, teacher, body.class_name)
     if db.scalar(select(Student).where(Student.student_no == body.student_no)):
         raise HTTPException(status_code=400, detail="学号已存在")
     data = body.model_dump()
@@ -80,11 +82,14 @@ def create_student(body: StudentIn, admin=Depends(require_admin), db: Session = 
 
 
 @router.patch("/{student_id}")
-def update_student(student_id: int, body: StudentPatch, admin=Depends(require_admin), db: Session = Depends(get_db)):
+def update_student(student_id: int, body: StudentPatch, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     student = db.get(Student, student_id)
     if student is None:
         raise HTTPException(status_code=404, detail="学生不存在")
+    assert_class_manager(db, teacher, student.class_name)
     data = body.model_dump(exclude_unset=True)
+    if teacher.role != "admin" and data.get("class_name") not in (None, student.class_name):
+        raise HTTPException(status_code=403, detail="班级管理角色不能将学生转到其他班级")
     if "gender" in data:
         data["gender"] = _validate_gender(data["gender"])
     for field, value in data.items():
@@ -94,10 +99,11 @@ def update_student(student_id: int, body: StudentPatch, admin=Depends(require_ad
 
 
 @router.delete("/{student_id}")
-def deactivate_student(student_id: int, admin=Depends(require_admin), db: Session = Depends(get_db)):
+def deactivate_student(student_id: int, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     student = db.get(Student, student_id)
     if student is None:
         raise HTTPException(status_code=404, detail="学生不存在")
+    assert_class_manager(db, teacher, student.class_name)
     student.is_active = False
     db.commit()
     return {"ok": True}

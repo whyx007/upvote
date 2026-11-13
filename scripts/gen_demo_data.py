@@ -77,7 +77,16 @@ def main():
                 emp = f"T{teacher_no:03d}"
                 teachers.append([emp, random_name(), random_phone(), "123456", "teacher", subject])
                 for class_name in chunk:
-                    teaching.append([emp, class_name])
+                    teaching.append([emp, class_name, "任课教师"])
+
+    # 每班配 1 名班主任、1 名副班主任（取本班前两位任课教师）
+    for row in teaching:
+        class_name = row[1]
+        class_employees = [r[0] for r in teaching if r[1] == class_name]
+        if row[0] == class_employees[0]:
+            row[2] = "班主任"
+        elif row[0] == class_employees[1]:
+            row[2] = "副班主任"
 
     wb = Workbook()
     wb.remove(wb.active)
@@ -85,7 +94,7 @@ def main():
         ("学生", ["学号", "姓名", "年级", "班级", "入学年份", "性别"], students),
         ("教师", ["工号", "姓名", "手机号", "初始密码", "角色", "学科"], teachers),
         ("小组", ["小组名称", "班级", "成员学号"], groups),
-        ("任教", ["工号", "班级"], teaching),
+        ("任教", ["工号", "班级", "角色"], teaching),
     ]:
         ws = wb.create_sheet(name)
         ws.append(header)
