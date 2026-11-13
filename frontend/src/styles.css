@@ -947,6 +947,13 @@ html, body, #app {
 .st-actions .van-button {
   flex: 1;
 }
+.st-actions-wrap {
+  flex-wrap: wrap;
+}
+.st-actions-wrap .van-button {
+  flex: 1 1 calc(50% - 3px);
+  min-width: 0;
+}
 @media (max-width: 560px) {
   .student-grid-admin {
     grid-template-columns: repeat(2, 1fr);

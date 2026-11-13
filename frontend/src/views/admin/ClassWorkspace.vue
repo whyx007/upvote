@@ -278,6 +278,23 @@ async function assignTeacher(t) {
   }
 }
 
+async function setDuty(t, duty) {
+  const holder = classTeachers.value.find((x) => x.duty === duty && x.id !== t.id)
+  try {
+    if (holder) {
+      await showConfirmDialog({
+        title: `更换${dutyLabel(duty)}`,
+        message: `本班${dutyLabel(duty)}现为 ${holder.name}，确定改由 ${t.name} 担任？原 ${holder.name} 将转为任课教师。`
+      })
+    }
+    await api.post(`/classes/${encodeURIComponent(className.value)}/teachers`, { teacher_id: t.id, duty })
+    showToast(`${t.name} 已设为${dutyLabel(duty)}`)
+    loadClassData()
+  } catch {
+    /* 取消或拦截器提示 */
+  }
+}
+
 async function removeClassTeacher(t) {
   try {
     await showConfirmDialog({ title: '移除任课', message: `确定移除 ${t.name} 在本班的任课？（不删除教师账号）` })
@@ -400,8 +417,12 @@ onMounted(async () => {
               <div class="st-groups">
                 <span class="st-group subject">{{ t.subject || '未设学科' }}</span>
               </div>
-              <div v-if="canManageTeachers" class="st-actions">
-                <van-button size="mini" plain type="danger" icon="delete-o" @click="removeClassTeacher(t)">移除任课</van-button>
+              <div v-if="canManageTeachers" class="st-actions st-actions-wrap">
+                <van-button v-if="t.duty !== 'head'" size="mini" plain type="warning" @click="setDuty(t, 'head')">设为班主任</van-button>
+                <van-button v-else size="mini" plain @click="setDuty(t, 'teacher')">取消班主任</van-button>
+                <van-button v-if="t.duty !== 'deputy'" size="mini" plain type="success" @click="setDuty(t, 'deputy')">设为副班主任</van-button>
+                <van-button v-else size="mini" plain @click="setDuty(t, 'teacher')">取消副班主任</van-button>
+                <van-button size="mini" plain type="danger" @click="removeClassTeacher(t)">移除任课</van-button>
               </div>
             </div>
           </div>
