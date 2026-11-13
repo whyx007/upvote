@@ -34,6 +34,12 @@ pnpm dev        # http://localhost:5173，/api 自动代理到 8000
 首次启动自动创建管理员：**admin / admin123（请立即修改）**。
 也可以 `pnpm build` 后直接访问 8000 端口（FastAPI 托管前端构建产物）。
 
+Windows 一键启动（自动生成并持久化随机密钥到 `.env`，监听 0.0.0.0:8000，局域网 Pad 可直接访问）：
+
+```powershell
+pwsh -File scripts\serve.ps1
+```
+
 ## 生产部署（Docker）
 
 ```bash
