@@ -4,6 +4,37 @@ html, body, #app {
   background: #f7f8fa;
   -webkit-tap-highlight-color: transparent;
 }
+
+/* PWA 更新横幅 */
+.update-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, #ffb03a, #ff7a3c);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 12px 22px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(255, 122, 60, 0.45);
+  cursor: pointer;
+  animation: update-pulse 2s ease-in-out infinite;
+}
+.update-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+}
+@keyframes update-pulse {
+  0%, 100% { box-shadow: 0 6px 20px rgba(255, 122, 60, 0.45); }
+  50% { box-shadow: 0 6px 28px rgba(255, 122, 60, 0.75); }
+}
 .page {
   min-height: 100%;
   padding-bottom: 24px;

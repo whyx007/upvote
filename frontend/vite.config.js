@@ -2,7 +2,13 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// 构建版本号（北京时间），用于界面展示与缓存排查
+const buildVersion = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 16).replace('T', ' ')
+
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(buildVersion)
+  },
   plugins: [
     vue(),
     VitePWA({

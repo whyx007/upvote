@@ -11,6 +11,7 @@ const showMenu = ref(false)
 const showPassword = ref(false)
 const oldPassword = ref('')
 const newPassword = ref('')
+const version = __APP_VERSION__
 
 async function changePassword() {
   try {
@@ -37,6 +38,7 @@ async function logout() {
     <van-cell-group :title="`${auth.teacher?.name}（${auth.teacher?.employee_no}）`">
       <van-cell title="修改密码" is-link icon="lock" @click="showMenu = false; showPassword = true" />
       <van-cell title="退出登录" is-link icon="revoke" @click="showMenu = false; logout()" />
+      <van-cell title="版本（构建时间）" :value="version" />
     </van-cell-group>
   </van-popup>
   <van-dialog v-model:show="showPassword" title="修改密码" show-cancel-button class="form-dialog" @confirm="changePassword">
