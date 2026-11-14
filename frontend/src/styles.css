@@ -128,48 +128,48 @@ html, body, #app {
 .nav-user-role.role-deputy { color: #07a452; }
 .nav-user-role.role-teacher { color: #969799; }
 
-/* 班级左右切换 */
-.class-stepper {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  padding: 2px 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.66);
-  border: 1px solid rgba(180, 140, 80, 0.18);
+/* 班级选择面板（点即切换） */
+.class-picker-panel {
+  padding: 14px 16px calc(16px + env(safe-area-inset-bottom));
 }
-.stepper-btn {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  background: transparent;
-  color: #a9782c;
-  font-size: 17px;
-  line-height: 1;
+.class-picker-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #4a3d2d;
+  margin-bottom: 10px;
+}
+.class-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 52vh;
+  overflow-y: auto;
+}
+.class-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 16px;
+  border: 1px solid #ebedf0;
+  border-radius: 12px;
+  background: #fafbfc;
+  color: #323233;
+  font-size: 15px;
   cursor: pointer;
   transition: all 0.13s ease;
 }
-.stepper-btn:hover {
-  background: #ff9f43;
-  color: #fff;
+.class-picker-item:hover {
+  border-color: #ffd8a8;
+  background: #fff8ec;
 }
-.stepper-btn:active {
-  transform: scale(0.92);
+.class-picker-item.active {
+  border-color: #ff9f43;
+  background: #fff3e2;
+  color: #d87912;
+  font-weight: 700;
 }
-.stepper-index {
-  min-width: 30px;
-  text-align: center;
-  color: #9a7543;
-  font-size: 11px;
-  font-weight: 600;
-}
-.hero-class-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+.class-picker-item.active .van-icon {
+  color: #ff9f43;
 }
 .class-header-main {
   display: flex;

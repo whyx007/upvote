@@ -21,10 +21,6 @@ const liking = ref(new Set())
 const likingGroup = ref(new Set())
 const search = ref('')
 
-const classColumns = computed(() => classes.value.map((c) => ({ text: c, value: c })))
-const classIndex = computed(() => classes.value.indexOf(className.value))
-const canStepClass = computed(() => classes.value.length > 1)
-
 // 顶部身份：当前班级里的角色（班主任/副班主任/教师），管理员另行标识
 const roleKey = computed(() => {
   if (auth.isAdmin) return 'admin'
@@ -134,19 +130,9 @@ async function undo(item) {
   }
 }
 
-function onClassConfirm({ selectedValues }) {
-  className.value = selectedValues[0]
+function selectClass(c) {
+  className.value = c
   showClassPicker.value = false
-  search.value = ''
-  loadAll()
-}
-
-// 左右箭头直接切换上一个/下一个班级（循环），不再弹窗确认
-function stepClass(delta) {
-  const list = classes.value
-  if (list.length < 2) return
-  const i = list.indexOf(className.value)
-  className.value = list[(i + delta + list.length) % list.length]
   search.value = ''
   loadAll()
 }
@@ -185,13 +171,8 @@ onMounted(async () => {
         <div class="hero-class-row">
           <button class="hero-class" type="button" @click="showClassPicker = true">
             <span>{{ className || '选择任教班级' }}</span>
-            <van-icon name="exchange" class="hero-class-icon" />
+            <van-icon name="arrow-down" class="hero-class-icon" />
           </button>
-          <div v-if="canStepClass" class="class-stepper">
-            <button class="stepper-btn" type="button" aria-label="上一个班级" @click="stepClass(-1)">‹</button>
-            <span class="stepper-index">{{ classIndex + 1 }}/{{ classes.length }}</span>
-            <button class="stepper-btn" type="button" aria-label="下一个班级" @click="stepClass(1)">›</button>
-          </div>
         </div>
         <div class="hero-meta">{{ semester ? semester.name : '尚未激活学期' }}</div>
         <div class="hero-stats">
@@ -298,7 +279,23 @@ onMounted(async () => {
     </van-tabs>
 
     <van-popup v-model:show="showClassPicker" position="bottom" round>
-      <van-picker :columns="classColumns" @confirm="onClassConfirm" @cancel="showClassPicker = false" />
+      <div class="class-picker-panel">
+        <div class="class-picker-title">选择班级</div>
+        <div class="class-picker-list">
+          <button
+            v-for="c in classes"
+            :key="c"
+            type="button"
+            class="class-picker-item"
+            :class="{ active: c === className }"
+            @click="selectClass(c)"
+          >
+            <span>{{ c }}</span>
+            <van-icon v-if="c === className" name="success" />
+          </button>
+          <van-empty v-if="!classes.length" description="还没有任教班级" />
+        </div>
+      </div>
     </van-popup>
   </div>
 </template>
