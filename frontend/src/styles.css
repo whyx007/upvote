@@ -62,6 +62,120 @@ html, body, #app {
   font-weight: 800;
   letter-spacing: 1px;
 }
+
+/* 右上角：登录人姓名 + 当前角色 */
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.nav-user:hover {
+  background: rgba(255, 159, 67, 0.1);
+}
+.nav-user-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+}
+.nav-user-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  max-width: 96px;
+}
+.nav-user-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4a3d2d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-user-role {
+  font-size: 10px;
+  font-weight: 600;
+}
+.nav-user-caret {
+  color: #b8a68c;
+  font-size: 11px;
+}
+.role-admin .nav-user-avatar,
+.nav-user-avatar.role-admin {
+  background: linear-gradient(135deg, #5aa9f5, #1989fa);
+}
+.nav-user-avatar.role-head {
+  background: linear-gradient(135deg, #ffbf52, #ff8f1f);
+}
+.nav-user-avatar.role-deputy {
+  background: linear-gradient(135deg, #5fd08a, #07c160);
+}
+.nav-user-avatar.role-teacher {
+  background: linear-gradient(135deg, #b7bec6, #8f979f);
+}
+.nav-user-role.role-admin { color: #1989fa; }
+.nav-user-role.role-head { color: #e8890c; }
+.nav-user-role.role-deputy { color: #07a452; }
+.nav-user-role.role-teacher { color: #969799; }
+
+/* 班级左右切换 */
+.class-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(180, 140, 80, 0.18);
+}
+.stepper-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #a9782c;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.13s ease;
+}
+.stepper-btn:hover {
+  background: #ff9f43;
+  color: #fff;
+}
+.stepper-btn:active {
+  transform: scale(0.92);
+}
+.stepper-index {
+  min-width: 30px;
+  text-align: center;
+  color: #9a7543;
+  font-size: 11px;
+  font-weight: 600;
+}
+.hero-class-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.class-header-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .teacher-nav::after {
   display: none;
 }

@@ -4,7 +4,9 @@ import { showToast } from 'vant'
 import api from '../api'
 import UserMenu from '../components/UserMenu.vue'
 import ClassWorkspace from './admin/ClassWorkspace.vue'
+import { useAuthStore } from '../stores/auth'
 
+const auth = useAuthStore()
 const classes = ref([])
 const className = ref('')
 const semester = ref(null)
@@ -20,6 +22,15 @@ const likingGroup = ref(new Set())
 const search = ref('')
 
 const classColumns = computed(() => classes.value.map((c) => ({ text: c, value: c })))
+const classIndex = computed(() => classes.value.indexOf(className.value))
+const canStepClass = computed(() => classes.value.length > 1)
+
+// 顶部身份：当前班级里的角色（班主任/副班主任/教师），管理员另行标识
+const roleKey = computed(() => {
+  if (auth.isAdmin) return 'admin'
+  const hit = managedRoles.value.find((r) => r.class_name === className.value)
+  return hit ? hit.duty : 'teacher'
+})
 const ranked = computed(() => [...roster.value].sort((a, b) => b.semester_balance - a.semester_balance || a.student_no.localeCompare(b.student_no)))
 const visibleRoster = computed(() => {
   const q = search.value.trim()
@@ -130,6 +141,16 @@ function onClassConfirm({ selectedValues }) {
   loadAll()
 }
 
+// 左右箭头直接切换上一个/下一个班级（循环），不再弹窗确认
+function stepClass(delta) {
+  const list = classes.value
+  if (list.length < 2) return
+  const i = list.indexOf(className.value)
+  className.value = list[(i + delta + list.length) % list.length]
+  search.value = ''
+  loadAll()
+}
+
 function fmtTime(iso) {
   return iso ? iso.slice(11, 16) : ''
 }
@@ -153,7 +174,7 @@ onMounted(async () => {
 <template>
   <div class="page teacher-page">
     <van-nav-bar class="teacher-nav" title="星灿点赞" fixed placeholder>
-      <template #right><UserMenu /></template>
+      <template #right><UserMenu :role-key="roleKey" /></template>
     </van-nav-bar>
 
     <section class="class-hero">
@@ -161,10 +182,17 @@ onMounted(async () => {
       <div class="hero-orb hero-orb-b"></div>
       <div class="hero-content">
         <div class="hero-kicker"><span>✦</span> 星灿币 · 让每一点进步被看见</div>
-        <button class="hero-class" type="button" @click="showClassPicker = true">
-          <span>{{ className || '选择任教班级' }}</span>
-          <van-icon name="exchange" />
-        </button>
+        <div class="hero-class-row">
+          <button class="hero-class" type="button" @click="showClassPicker = true">
+            <span>{{ className || '选择任教班级' }}</span>
+            <van-icon name="exchange" class="hero-class-icon" />
+          </button>
+          <div v-if="canStepClass" class="class-stepper">
+            <button class="stepper-btn" type="button" aria-label="上一个班级" @click="stepClass(-1)">‹</button>
+            <span class="stepper-index">{{ classIndex + 1 }}/{{ classes.length }}</span>
+            <button class="stepper-btn" type="button" aria-label="下一个班级" @click="stepClass(1)">›</button>
+          </div>
+        </div>
         <div class="hero-meta">{{ semester ? semester.name : '尚未激活学期' }}</div>
         <div class="hero-stats">
           <div><strong>{{ roster.length }}</strong><span>班级学生</span></div>

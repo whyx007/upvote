@@ -35,6 +35,8 @@ const filteredRoster = computed(() => {
 })
 
 const currentDuty = computed(() => dutyMap.value[className.value] || '')
+const classIndex = computed(() => classes.value.indexOf(className.value))
+const canStepClass = computed(() => classes.value.length > 1)
 const canManageTeachers = computed(() => !props.managedOnly || currentDuty.value === 'head')
 const dutyLabels = { teacher: '任课教师', head: '班主任', deputy: '副班主任' }
 const dutyLabel = (duty) => dutyLabels[duty] || '任课教师'
@@ -73,6 +75,14 @@ function selectClass(c) {
   showClassPopup.value = false
   studentSearch.value = ''
   loadClassData()
+}
+
+// 左右箭头直接切换班级（循环），无需弹窗确认
+function stepClass(delta) {
+  const list = classes.value
+  if (list.length < 2) return
+  const i = list.indexOf(className.value)
+  selectClass(list[(i + delta + list.length) % list.length])
 }
 
 /* ---------- 学生 ---------- */
@@ -335,7 +345,14 @@ onMounted(async () => {
     <main class="class-main">
       <van-cell class="class-switch" :title="`班级：${className || '未选择'}`" is-link @click="showClassPopup = true" />
       <div class="class-header">
-        <h3>{{ className || '请先在左侧选择班级' }}</h3>
+        <div class="class-header-main">
+          <h3>{{ className || '请先在左侧选择班级' }}</h3>
+          <div v-if="canStepClass" class="class-stepper">
+            <button class="stepper-btn" type="button" aria-label="上一个班级" @click="stepClass(-1)">‹</button>
+            <span class="stepper-index">{{ classIndex + 1 }}/{{ classes.length }}</span>
+            <button class="stepper-btn" type="button" aria-label="下一个班级" @click="stepClass(1)">›</button>
+          </div>
+        </div>
         <span class="muted">{{ roster.length }} 名学生 · {{ groups.length }} 个小组 · {{ classTeachers.length }} 位任课教师</span>
       </div>
 
