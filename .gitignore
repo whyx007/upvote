@@ -23,6 +23,14 @@ node_modules/
 frontend/dist/
 *.local
 
+# 安卓构建（工具链体积大、产物可重建、密钥禁止入库）
+tools/
+android/app/src/main/assets/www/
+android/keystore/
+scripts/android_smoke/out/
+*.apk
+*.jks
+
 # 杂项
 .DS_Store
-Thumbs.db
+Thumbs.db.pnpm-store/

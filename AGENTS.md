@@ -22,3 +22,12 @@
 - 前端构建：`cd frontend; & '<node>' '<pnpm.mjs>' build`（Node/pnpm 用 DSH 运行时路径，见 load_workspace_dependencies）
 - 端到端冒烟：`python scripts/smoke.py`（需全新数据库的运行中服务，24 项）
 - 默认账号：admin/admin123；教师导入默认密码 123456
+
+## 安卓 APK
+- 架构：APK 内 Vue 前端 + 回环 HTTP 服务（`LocalServer`）转发 `/api/**` 到 VPS，后端零改动。详见 `docs/android-apk.md`。
+- 装工具链：`powershell -ExecutionPolicy Bypass -File scripts\install_android_sdk.ps1`（产物 `tools\android-sdk`，已 gitignore）
+- 出包：`powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1 -VersionName 1.0.0 -VersionCode 1`
+  产物 `android\build\upvote-<版本>.apk`
+- 后端地址常量：`android/app/src/main/java/site/whyx/upvote/Config.java` 的 `API_ORIGIN`
+- **.ps1 必须存为 UTF-8 with BOM**，否则 Windows PowerShell 5.1 按 GBK 解析中文会报语法错误
+- 签名密钥 `android/keystore/upvote.jks`（gitignore），升级安装必须同一把密钥

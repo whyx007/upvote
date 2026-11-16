@@ -5,6 +5,10 @@ import { VitePWA } from 'vite-plugin-pwa'
 // 构建版本号（北京时间），用于界面展示与缓存排查
 const buildVersion = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 16).replace('T', ' ')
 
+// 安卓 APK 构建：资源已打包进 APK，由本地回环服务提供，不需要 Service Worker
+// （SW 会缓存 index.html，APK 升级后容易读到旧壳）
+const isApkBuild = process.env.UPVOTE_APK === '1'
+
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(buildVersion)
@@ -12,6 +16,7 @@ export default defineConfig({
   plugins: [
     vue(),
     VitePWA({
+      disable: isApkBuild,
       registerType: 'autoUpdate',
       manifest: {
         name: '星灿点赞积分系统',

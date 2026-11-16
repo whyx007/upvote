@@ -45,6 +45,20 @@ api.interceptors.response.use(
 
 export async function downloadBlob(url, filename, params) {
   const r = await api.get(url, { responseType: 'blob', params })
+
+  // 安卓 APK：WebView 内 <a download> 不会触发下载，交给原生桥写入「下载」目录
+  const bridge = typeof window !== 'undefined' ? window.UpvoteNative : null
+  if (bridge && typeof bridge.saveBlob === 'function') {
+    const mime = r.headers?.['content-type'] || r.data?.type || 'application/octet-stream'
+    try {
+      await bridge.saveBlob(filename, r.data, mime)
+      showToast('已保存到「下载」目录')
+      return
+    } catch {
+      /* 桥接不可用时回退到浏览器下载 */
+    }
+  }
+
   const a = document.createElement('a')
   a.href = URL.createObjectURL(r.data)
   a.download = filename

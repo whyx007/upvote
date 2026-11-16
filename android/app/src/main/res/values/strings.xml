@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">星灿点赞</string>
+    <string name="error_title">连接失败</string>
+    <string name="error_retry">重新加载</string>
+</resources>

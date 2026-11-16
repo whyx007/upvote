@@ -104,6 +104,23 @@ python scripts/backup.py            # 在线安全备份到 data/backups/，保�
 3. 兑换：管理员在"兑换"页选学生+奖励，当场确认扣分；可取消退还
 4. 学期切换：管理台激活新学期，学期余额重新累计，总累计保留
 
+## 安卓 APK（星灿点赞）
+
+教师 Pad 可以直接装 APK，不用每次打开浏览器。前端资源随包内置，API 仍指向 VPS 后端。
+
+```powershell
+# 首次：安装 Android 命令行工具链（约 300MB，落在 tools\android-sdk）
+powershell -ExecutionPolicy Bypass -File scripts\install_android_sdk.ps1
+
+# 出包
+powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1 -VersionName 1.0.0 -VersionCode 1
+# 产物：android\build\upvote-1.0.0.apk
+```
+
+- 后端地址在 `android/app/src/main/java/site/whyx/upvote/Config.java` 的 `API_ORIGIN`
+- 架构、构建细节与已知限制见 [docs/android-apk.md](docs/android-apk.md)
+- 只需后端更新时不必重新出包，照旧执行 `scripts/deploy_vps.py`
+
 ## 测试
 
 ```bash
