@@ -56,10 +56,14 @@ public final class LocalServer {
     private final AtomicBoolean running = new AtomicBoolean(false);
     private ServerSocket serverSocket;
     private Thread acceptThread;
+    private String lastAssetError;
+    private String lastMissPath = "";
 
-    /** 静态资源来源。安卓侧是 {@code getAssets()::open}，桌面侧可换成文件系统，便于本地冒烟测试。 */
+    /** 静态资源来源。安卓侧是 {@link AssetManagerSource}，桌面侧用文件系统，便于本地冒烟测试。 */
     public interface AssetSource {
         InputStream open(String path) throws IOException;
+
+        String[] list(String path) throws IOException;
     }
 
     public LocalServer(AssetSource assets) {
@@ -119,7 +123,8 @@ public final class LocalServer {
                 return;
             }
             String method = parts[0];
-            String target = parts[1];
+            String target = normalizeTarget(parts[1]);
+            Log.d(TAG, method + " " + target);
 
             Map<String, String> headers = readHeaders(in);
             byte[] body = readBody(in, headers);
@@ -136,6 +141,30 @@ public final class LocalServer {
     }
 
     // ---------------------------------------------------------------- 请求解析
+
+    /**
+     * 部分 WebView 会发绝对形式的请求行（{@code GET http://host/path HTTP/1.1}），
+     * 这里统一成 origin-form，避免资源查找拿到一整个 URL 而返回 404。
+     */
+    private static String normalizeTarget(String rawTarget) {
+        if (rawTarget == null || rawTarget.isEmpty()) {
+            return "/";
+        }
+        if (rawTarget.startsWith("http://") || rawTarget.startsWith("https://")) {
+            try {
+                java.net.URI uri = java.net.URI.create(rawTarget);
+                String path = uri.getRawPath();
+                String query = uri.getRawQuery();
+                if (path == null || path.isEmpty()) {
+                    path = "/";
+                }
+                return query == null ? path : path + "?" + query;
+            } catch (Exception ignored) {
+                // 解析失败则按原样处理
+            }
+        }
+        return rawTarget;
+    }
 
     private static String readLine(InputStream in) throws IOException {
         ByteArrayOutputStream buf = new ByteArrayOutputStream(128);
@@ -274,6 +303,7 @@ public final class LocalServer {
             }
 
             int code = conn.getResponseCode();
+            Log.d(TAG, "proxy " + method + " " + target + " -> " + code);
             InputStream ris = code >= 400 ? conn.getErrorStream() : conn.getInputStream();
             byte[] respBody = ris == null ? new byte[0] : readAll(ris, MAX_BODY_BYTES);
 
@@ -324,6 +354,8 @@ public final class LocalServer {
             return;
         }
 
+        lastMissPath = path;
+        lastAssetError = null;
         byte[] data = readAssetOrNull(Config.ASSET_DIR + path);
         if (data == null && !hasExtension(path)) {
             data = readAssetOrNull(Config.ASSET_DIR + "/index.html");
@@ -332,7 +364,8 @@ public final class LocalServer {
             }
         }
         if (data == null) {
-            writeText(out, 404, "Not Found");
+            Log.w(TAG, "asset miss: " + Config.ASSET_DIR + path);
+            writeText(out, 404, "Not Found: " + path + "\n" + describeAssets());
             return;
         }
 
@@ -353,7 +386,33 @@ public final class LocalServer {
         try (InputStream is = assets.open(assetPath)) {
             return readAll(is, 64 * 1024 * 1024);
         } catch (IOException e) {
+            lastAssetError = assetPath + " -> " + e;
+            Log.w(TAG, "open asset failed: " + lastAssetError);
             return null;
+        }
+    }
+
+    /** 404 时把 APK 里实际可见的 assets 和最近一次异常都列出来，方便在设备上定位。 */
+    private String describeAssets() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("requested asset: ").append(Config.ASSET_DIR).append(lastMissPath).append('\n');
+        if (lastAssetError != null) {
+            sb.append("last error: ").append(lastAssetError).append('\n');
+        }
+        sb.append("assets root: ").append(joinList("")).append('\n');
+        sb.append("assets/").append(Config.ASSET_DIR).append(": ").append(joinList(Config.ASSET_DIR));
+        return sb.toString();
+    }
+
+    private String joinList(String dir) {
+        try {
+            String[] items = assets.list(dir);
+            if (items == null || items.length == 0) {
+                return "(empty)";
+            }
+            return String.join(", ", items);
+        } catch (IOException e) {
+            return "(list failed: " + e + ")";
         }
     }
 

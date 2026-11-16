@@ -112,6 +112,26 @@ java "-Dfile.encoding=UTF-8" -cp $out LocalServerSmokeTest frontend\dist
 | d8 `NullPointerException: String.length() ...` | 本机 d8 8.2.2 处理 javac 21 编出的**匿名内部类**会崩 | 用命名内部类或 lambda（见 `AppWebViewClient`） |
 | 登录失败时前端拿不到错误文案 | `setFixedLengthStreamingMode` + 401 → Java 抛 `HttpRetryException` 丢弃响应体 | 代理改为缓冲写入，不用流式模式 |
 | keytool/javac 输出被当成致命错误 | `$ErrorActionPreference='Stop'` 会把原生 stderr 当终止错误 | 脚本改为 `Continue` + 显式检查 `$LASTEXITCODE` |
+| **设备上打开 App 显示 `Not Found`** | **aapt2（Windows 版）把 asset 名写成 `assets/www\index.html`（反斜杠）**，Android AssetManager 只认 `/`，于是 `open("www/index.html")` 抛 FileNotFoundException、`list("www")` 返回空 | `scripts/fix_apk_assets.py` 在 `aapt2 link` 之后规范化条目名；这一步漏了必现 Not Found |
+
+> 排查提示：`zipfile` 在 Windows 上会自动把条目名里的 `\` 换成 `/`（`os.sep` 替换），
+> 所以用 Python 看 APK 条目名会**看不出**这个问题。要判定必须扫原始字节，或用
+> `adb logcat` 看 `UpvoteApp` 打印的 `assets root=[...]`。
+
+## 真机调试（无需模拟器）
+
+```powershell
+$adb = 'tools\android-sdk\platform-tools\adb.exe'
+& $adb devices -l
+& $adb install -r -d android\build\upvote-*.apk
+& $adb logcat -c; & $adb shell am start -n site.whyx.upvote/.MainActivity
+& $adb logcat -d -v time | Select-String 'UpvoteLocalServer|UpvoteApp|UpvoteAssetSource|FATAL'
+```
+
+- 日志 tag：`UpvoteLocalServer`（每条请求与代理状态）、`UpvoteApp`（assets 探针）、`UpvoteAssetSource`（兜底路径）
+- 截图：`adb shell screencap -p /sdcard/s.png` 再 `adb pull`（PowerShell 的 `>` 重定向会破坏二进制）
+- `adb` daemon 若报 `cannot open ...\Temp\adb.log: Permission denied`，把 `TEMP` 指到工作区内再启动
+- 小米机型装包报 `INSTALL_FAILED_USER_RESTRICTED`：开发者选项里打开「USB 安装」并点手机上的允许
 
 ## 更新策略
 

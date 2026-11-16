@@ -64,8 +64,16 @@ public class MainActivity extends Activity {
 
         injectScript = readAsset(Config.INJECT_SCRIPT);
 
+        // 探针：把设备上真实可见的 assets 打进日志，便于定位资源读取问题
         try {
-            server = new LocalServer(getAssets()::open);
+            Log.i(TAG, "assets root=" + java.util.Arrays.toString(getAssets().list("")));
+            Log.i(TAG, "assets/www=" + java.util.Arrays.toString(getAssets().list(Config.ASSET_DIR)));
+        } catch (IOException e) {
+            Log.w(TAG, "list assets failed: " + e);
+        }
+
+        try {
+            server = new LocalServer(new HybridAssetSource(this));
             int port = server.start();
             baseUrl = "http://127.0.0.1:" + port + "/";
         } catch (IOException e) {
@@ -101,6 +109,9 @@ public class MainActivity extends Activity {
         }
 
         webView.addJavascriptInterface(new SaveBridge(this), "AndroidBridge");
+
+        // 允许 chrome://inspect 调试 WebView（真机 USB 联调时用）
+        WebView.setWebContentsDebuggingEnabled(true);
 
         webView.setWebViewClient(new AppWebViewClient(this));
     }

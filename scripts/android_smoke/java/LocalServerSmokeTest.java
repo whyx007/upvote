@@ -30,14 +30,7 @@ public final class LocalServerSmokeTest {
             System.exit(2);
         }
 
-        LocalServer server = new LocalServer(path -> {
-            String rel = path.startsWith("www/") ? path.substring("www/".length()) : path;
-            Path file = dist.resolve(rel).normalize();
-            if (!file.startsWith(dist) || !Files.isRegularFile(file)) {
-                throw new FileNotFoundException(path);
-            }
-            return Files.newInputStream(file);
-        });
+        LocalServer server = new LocalServer(new DistAssetSource(dist));
 
         int port = server.start();
         String base = "http://127.0.0.1:" + port;
@@ -93,6 +86,47 @@ public final class LocalServerSmokeTest {
     }
 
     // ---------------------------------------------------------------- 辅助
+
+    /** 用 frontend/dist 模拟 APK 的 assets/www。 */
+    private static final class DistAssetSource implements LocalServer.AssetSource {
+
+        private final Path dist;
+
+        DistAssetSource(Path dist) {
+            this.dist = dist;
+        }
+
+        @Override
+        public InputStream open(String path) throws FileNotFoundException {
+            Path file = resolve(path);
+            if (!Files.isRegularFile(file)) {
+                throw new FileNotFoundException(path);
+            }
+            try {
+                return Files.newInputStream(file);
+            } catch (Exception e) {
+                throw new FileNotFoundException(path);
+            }
+        }
+
+        @Override
+        public String[] list(String path) {
+            Path dir = path.isEmpty() ? dist : resolve(path);
+            if (!Files.isDirectory(dir)) {
+                return new String[0];
+            }
+            try (java.util.stream.Stream<Path> s = Files.list(dir)) {
+                return s.map(p -> p.getFileName().toString()).sorted().toArray(String[]::new);
+            } catch (Exception e) {
+                return new String[0];
+            }
+        }
+
+        private Path resolve(String path) {
+            String rel = path.startsWith("www/") ? path.substring("www/".length()) : path;
+            return dist.resolve(rel).normalize();
+        }
+    }
 
     private static String firstAsset(Path dist) throws Exception {
         Path assets = dist.resolve("assets");

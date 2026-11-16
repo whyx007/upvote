@@ -138,6 +138,12 @@ Write-Step 'aapt2 链接资源并生成 R.java'
     $resZip
 if ($LASTEXITCODE -ne 0) { throw 'aapt2 link 失败' }
 
+# aapt2（Windows 版）会把 assets/www/index.html 写成 assets\www\index.html（反斜杠），
+# 导致设备上 AssetManager.open("www/index.html") 抛 FileNotFoundException。必须规范化。
+Write-Step '规范化 APK 内 asset 条目名（反斜杠 -> 正斜杠）'
+& $Python (Join-Path $PSScriptRoot 'fix_apk_assets.py') $unsigned
+if ($LASTEXITCODE -ne 0) { throw 'asset 条目名规范化失败' }
+
 # ---------------------------------------------------------------- javac
 Write-Step 'javac 编译 Java 源码'
 $sources = @(Get-ChildItem -Path (Join-Path $appMain 'java') -Recurse -Filter '*.java' | ForEach-Object { $_.FullName })
