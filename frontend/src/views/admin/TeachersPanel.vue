@@ -2,11 +2,13 @@
 import { computed, onMounted, ref } from 'vue'
 import { showToast, showConfirmDialog } from 'vant'
 import api from '../../api'
-import { SUBJECTS, GRADE_ORDER, gradeOfClass } from '../../constants'
+import { SUBJECTS, GRADE_ORDER, gradeOfClass, normalizeSubject, shortClassName } from '../../constants'
 
 const teachers = ref([])
 const allClasses = ref([])
 const q = ref('')
+const roleFilter = ref('')
+const subjectFilter = ref('')
 const showDialog = ref(false)
 const editing = ref(null)
 const form = ref({ employee_no: '', name: '', phone: '', role: 'teacher', subject: '', password: '', classes: [] })
@@ -39,9 +41,12 @@ function toggleClass(c) {
 }
 
 const filtered = computed(() =>
-  teachers.value.filter(
-    (t) => !q.value || t.name.includes(q.value) || t.employee_no.includes(q.value) || (t.subject || '').includes(q.value)
-  )
+  teachers.value.filter((t) => {
+    if (q.value && !t.name.includes(q.value) && !t.employee_no.includes(q.value) && !(t.subject || '').includes(q.value)) return false
+    if (roleFilter.value && t.role !== roleFilter.value) return false
+    if (subjectFilter.value && normalizeSubject(t.subject) !== subjectFilter.value) return false
+    return true
+  })
 )
 
 function gradeRank(t) {
@@ -58,10 +63,12 @@ function gradeLabel(t) {
 const grouped = computed(() => {
   const bySubject = {}
   for (const t of filtered.value) {
-    const s = t.subject || '未设学科'
+    const s = normalizeSubject(t.subject) || '未设学科'
     ;(bySubject[s] = bySubject[s] || []).push(t)
   }
-  return [...SUBJECTS, '未设学科']
+  const known = SUBJECTS.filter((s) => bySubject[s])
+  const extra = Object.keys(bySubject).filter((s) => s !== '未设学科' && !SUBJECTS.includes(s))
+  return [...known, ...extra, '未设学科']
     .filter((s) => bySubject[s])
     .map((s) => ({
       subject: s,
@@ -77,13 +84,25 @@ function openCreate() {
 
 function openEdit(t) {
   editing.value = t
-  form.value = { employee_no: t.employee_no, name: t.name, phone: t.phone || '', role: t.role, subject: t.subject || '', password: '', classes: [...(t.classes || [])] }
+  form.value = {
+    employee_no: t.employee_no,
+    name: t.name,
+    phone: t.phone || '',
+    role: t.role,
+    subject: normalizeSubject(t.subject) || '',
+    password: '',
+    classes: [...(t.classes || [])]
+  }
   showDialog.value = true
 }
 
 async function save() {
+  if (form.value.role === 'subject_lead' && !form.value.subject) {
+    showToast('学科组长必须选择学科')
+    return
+  }
   try {
-    const body = { ...form.value, subject: form.value.subject || null }
+    const body = { ...form.value, subject: normalizeSubject(form.value.subject) || null }
     delete body.classes
     if (!body.password) delete body.password
     let id
@@ -130,7 +149,19 @@ onMounted(() => {
     <van-search v-model="q" placeholder="搜索姓名 / 工号 / 学科" />
     <div class="toolbar">
       <van-button size="small" type="warning" icon="plus" @click="openCreate">新增教师</van-button>
-      <span class="muted">按学科分组 · 组内按年级（初一→初三）排序</span>
+      <span class="muted">按学科分组 · 组内按年级（七年级→九年级）排序</span>
+    </div>
+    <div class="roster-filters">
+      <select v-model="roleFilter" class="native-select">
+        <option value="">全部角色</option>
+        <option value="teacher">任课教师</option>
+        <option value="subject_lead">学科组长</option>
+        <option value="admin">校长/主任</option>
+      </select>
+      <select v-model="subjectFilter" class="native-select">
+        <option value="">全部学科</option>
+        <option v-for="s in SUBJECTS" :key="s" :value="s">{{ s }}</option>
+      </select>
     </div>
 
     <div v-for="g in grouped" :key="g.subject" class="subject-section">
@@ -139,11 +170,13 @@ onMounted(() => {
         <div v-for="t in g.teachers" :key="t.id" class="student-tile" :class="{ inactive: !t.is_active }">
           <div class="st-head">
             <span class="st-name">{{ t.name }}</span>
-            <van-tag v-if="t.role === 'admin'" type="primary" plain size="medium">管理员</van-tag>
+            <van-tag v-if="t.role === 'admin'" type="primary" plain size="medium">校长/主任</van-tag>
+            <van-tag v-else-if="t.role === 'subject_lead'" type="success" plain size="medium">学科组长</van-tag>
             <van-tag v-if="!t.is_active" type="danger" plain size="medium">已停用</van-tag>
           </div>
           <div class="st-no">{{ t.employee_no }}</div>
           <div class="st-groups">
+            <span class="st-group subject">{{ t.subject || '未设学科' }}</span>
             <span class="st-group grade">{{ gradeLabel(t) }}</span>
             <span v-for="c in t.classes" :key="c" class="st-group">{{ c }}</span>
           </div>
@@ -156,16 +189,24 @@ onMounted(() => {
     </div>
     <van-empty v-if="!grouped.length" description="没有匹配的教师" />
 
-    <van-dialog v-model:show="showDialog" :title="editing ? '编辑教师' : '新增教师'" show-cancel-button class="form-dialog" @confirm="save">
-      <van-field v-model="form.employee_no" label="工号" placeholder="必填，登录账号" :disabled="!!editing" />
+    <van-dialog teleport="body" v-model:show="showDialog" :title="editing ? '编辑教师' : '新增教师'" show-cancel-button class="form-dialog" @confirm="save">
+      <van-field v-model="form.employee_no" label="工号" placeholder="留空自动生成，登录账号" :disabled="!!editing" />
       <van-field v-model="form.name" label="姓名" placeholder="必填" />
-      <van-field v-model="form.subject" label="学科" placeholder="点击选择学科" is-link readonly @click="showSubjectPicker = true" />
+      <van-field
+        v-model="form.subject"
+        label="学科"
+        :placeholder="form.role === 'subject_lead' ? '学科组长必填' : '点击选择学科'"
+        is-link
+        readonly
+        @click="showSubjectPicker = true"
+      />
       <van-field v-model="form.phone" label="手机号" placeholder="选填，也可用于登录" />
       <van-field label="角色">
         <template #input>
           <van-radio-group v-model="form.role" direction="horizontal">
-            <van-radio name="teacher">教师</van-radio>
-            <van-radio name="admin">管理员</van-radio>
+            <van-radio name="teacher">任课教师</van-radio>
+            <van-radio name="subject_lead">学科组长</van-radio>
+            <van-radio name="admin">校长/主任</van-radio>
           </van-radio-group>
         </template>
       </van-field>
@@ -190,7 +231,7 @@ onMounted(() => {
                   :class="{ on: form.classes.includes(c) }"
                   @click="toggleClass(c)"
                 >
-                  {{ c.replace(g.grade, '') }}
+                  {{ shortClassName(c) }}
                 </button>
               </div>
               <div v-if="!allClasses.length" class="muted">暂无班级，请先导入学生数据</div>
@@ -201,7 +242,7 @@ onMounted(() => {
       </van-field>
     </van-dialog>
 
-    <van-popup v-model:show="showSubjectPicker" position="bottom" round>
+    <van-popup teleport="body" v-model:show="showSubjectPicker" position="bottom" round>
       <van-picker :columns="subjectColumns" @confirm="onSubjectConfirm" @cancel="showSubjectPicker = false" />
     </van-popup>
   </div>

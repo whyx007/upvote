@@ -14,8 +14,23 @@ class Teacher(Base):
     name: Mapped[str] = mapped_column(String(64))
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(128))
-    role: Mapped[str] = mapped_column(String(16), default="teacher")  # teacher | admin
+    # teacher（任课教师）| subject_lead（学科组长）| admin（校长/主任）
+    role: Mapped[str] = mapped_column(String(16), default="teacher")
     subject: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class SchoolClass(Base):
+    """班级主数据：支持先建班（空班也可指派教师），再由学生名册自动归班。"""
+
+    __tablename__ = "classes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    grade: Mapped[str] = mapped_column(String(32), index=True)  # 七年级/八年级/九年级
+    class_no: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    enrollment_year: Mapped[int | None] = mapped_column(Integer, nullable=True)  # 级（入学年份）
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -91,7 +106,7 @@ class Like(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
     group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
     semester_id: Mapped[int] = mapped_column(ForeignKey("semesters.id"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 

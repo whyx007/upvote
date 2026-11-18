@@ -53,7 +53,7 @@ onMounted(load)
     </van-cell-group>
     <van-empty v-if="!items.length" description="请先创建并激活一个学期" />
 
-    <van-dialog v-model:show="showDialog" title="新增学期" show-cancel-button class="form-dialog" @confirm="save">
+    <van-dialog teleport="body" v-model:show="showDialog" title="新增学期" show-cancel-button class="form-dialog" @confirm="save">
       <van-field v-model="form.name" label="名称" placeholder="如：2026-2027学年第一学期" />
       <van-field v-model="form.start_date" label="开始日期" type="date" />
       <van-field v-model="form.end_date" label="结束日期" type="date" />

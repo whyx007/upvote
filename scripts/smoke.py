@@ -60,7 +60,7 @@ def main():
 
     r = c.get("/api/imports/template", headers=admin)
     wb = load_workbook(io.BytesIO(r.content))
-    ok("导入模板四表", set(wb.sheetnames) == {"学生", "教师", "小组", "任教"})
+    ok("导入模板", set(wb.sheetnames) == {"学生", "教师", "说明"})
 
     r = c.post("/api/semesters", headers=admin, json={"name": "2026-2027学年第一学期", "start_date": "2026-09-01", "end_date": "2027-01-15"})
     ok("创建学期", r.status_code == 200, r.text)

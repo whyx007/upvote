@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Group, GroupMember, Like, Student, Teacher
 from ..security import get_current_teacher, get_db
+from ..services.access import assert_like_access
 from ..services.points import balances_for_students
 from .semesters import current_semester
 
@@ -39,11 +40,13 @@ def create_like(body: LikeIn, request: Request, teacher=Depends(get_current_teac
         student = db.get(Student, body.target_id)
         if student is None or not student.is_active:
             raise HTTPException(status_code=404, detail="学生不存在")
+        assert_like_access(db, teacher, student.class_name)
         targets = [student]
     else:
         group = db.get(Group, body.target_id)
         if group is None:
             raise HTTPException(status_code=404, detail="小组不存在")
+        assert_like_access(db, teacher, group.class_name)
         targets = db.scalars(
             select(Student)
             .join(GroupMember, GroupMember.student_id == Student.id)
@@ -82,6 +85,7 @@ def decrement_like(body: DecrementIn, request: Request, teacher=Depends(get_curr
     student = db.get(Student, body.student_id)
     if student is None or not student.is_active:
         raise HTTPException(status_code=404, detail="学生不存在")
+    assert_like_access(db, teacher, student.class_name)
     semester = current_semester(db)
     if semester is None:
         raise HTTPException(status_code=400, detail="当前没有激活的学期")

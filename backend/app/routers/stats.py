@@ -1,15 +1,20 @@
-"""Overview stats and Excel export of student balances."""
+"""Overview stats, teacher usage reports and Excel exports."""
 import io
+from datetime import date
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
 from openpyxl import Workbook
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import Like, Redemption, Student, Teacher
-from ..security import get_current_teacher, get_db
+from ..security import get_current_teacher, get_db, require_admin
+from ..services.access import assert_stats_teacher, is_subject_lead, stats_teachers
+from ..services.grades import class_sort_key, normalize_grade
 from ..services.points import balances_for_students
+from ..services.subjects import normalize_subject
+from ..services.usage import resolve_period, usage_detail, usage_report
 from .semesters import current_semester
 
 router = APIRouter(prefix="/api/stats", tags=["stats"])
@@ -23,11 +28,58 @@ def _semester(db, semester_id):
     return db.get(Semester, semester_id) if semester_id else current_semester(db)
 
 
+def _usage_teachers(teacher, subject: str, db: Session) -> list[Teacher]:
+    teachers = stats_teachers(db, teacher)
+    if subject:
+        wanted = normalize_subject(subject)
+        if is_subject_lead(teacher) and wanted != normalize_subject(teacher.subject):
+            raise HTTPException(status_code=403, detail="学科组长只能查看本科目统计")
+        teachers = [t for t in teachers if normalize_subject(t.subject) == wanted]
+    return teachers
+
+
+def _usage_report(
+    db: Session,
+    teacher,
+    *,
+    period: str | None,
+    start: date | None,
+    end: date | None,
+    subject: str,
+    grade: str,
+    class_name: str,
+) -> dict:
+    start_dt, end_dt, start_date, end_date = resolve_period(period, start, end)
+    teachers = _usage_teachers(teacher, subject, db)
+    report = usage_report(
+        db,
+        teachers,
+        start_dt,
+        end_dt,
+        grade=grade,
+        class_name=class_name,
+        start_date=start_date,
+        end_date=end_date,
+    )
+    report["period"] = {
+        "key": period or "month",
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+    }
+    report["scope"] = {
+        "role": teacher.role,
+        "subject": normalize_subject(teacher.subject),
+        "class_name": class_name or None,
+        "grade": grade or None,
+    }
+    return report
+
+
 @router.get("/overview")
 def overview(
     request: Request,
     semester_id: int | None = Query(None),
-    teacher=Depends(get_current_teacher),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     semester = _semester(db, semester_id)
@@ -57,7 +109,7 @@ def overview(
     ]
 
     per_class = []
-    class_names = sorted({s.class_name for s in students})
+    class_names = sorted({s.class_name for s in students}, key=class_sort_key)
     for class_name in class_names:
         class_students = [s for s in students if s.class_name == class_name]
         class_likes = db.scalar(
@@ -80,11 +132,114 @@ def overview(
     }
 
 
+@router.get("/usage")
+def usage(
+    period: str = Query("month"),
+    start: date | None = Query(None),
+    end: date | None = Query(None),
+    subject: str = "",
+    grade: str = "",
+    class_name: str = "",
+    teacher=Depends(get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    return _usage_report(
+        db,
+        teacher,
+        period=period,
+        start=start,
+        end=end,
+        subject=subject,
+        grade=grade,
+        class_name=class_name,
+    )
+
+
+@router.get("/usage/export")
+def export_usage(
+    period: str = Query("month"),
+    start: date | None = Query(None),
+    end: date | None = Query(None),
+    subject: str = "",
+    grade: str = "",
+    class_name: str = "",
+    teacher=Depends(get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    report = _usage_report(
+        db,
+        teacher,
+        period=period,
+        start=start,
+        end=end,
+        subject=subject,
+        grade=grade,
+        class_name=class_name,
+    )
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "教师使用统计"
+    ws.append(["工号", "姓名", "学科", "角色", "任教班级", "统计期内点赞班级", "点赞数", "使用天数", "覆盖学生数", "首次点赞", "最近点赞"])
+    for item in report["items"]:
+        ws.append(
+            [
+                item["employee_no"],
+                item["name"],
+                item["subject"] or "",
+                item["role"],
+                "、".join(item["classes"]),
+                "、".join(item["liked_classes"]),
+                item["like_count"],
+                item["active_days"],
+                item["student_count"],
+                item["first_like_at"] or "",
+                item["last_like_at"] or "",
+            ]
+        )
+    ws.append([])
+    summary = report["summary"]
+    ws.append(["统计区间", f"{summary['start_date']} 至 {summary['end_date']}"])
+    ws.append(["教师数", summary["teacher_count"]])
+    ws.append(["活跃教师", summary["active_teachers"]])
+    ws.append(["点赞总数", summary["total_likes"]])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return Response(
+        content=buf.getvalue(),
+        media_type=XLSX_MIME,
+        headers={"Content-Disposition": "attachment; filename=upvote_usage.xlsx"},
+    )
+
+
+@router.get("/usage/{teacher_id}")
+def usage_detail_route(
+    teacher_id: int,
+    period: str = Query("month"),
+    start: date | None = Query(None),
+    end: date | None = Query(None),
+    grade: str = "",
+    class_name: str = "",
+    teacher=Depends(get_current_teacher),
+    db: Session = Depends(get_db),
+):
+    target = db.get(Teacher, teacher_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="教师不存在")
+    assert_stats_teacher(teacher, target)
+    start_dt, end_dt, start_date, end_date = resolve_period(period, start, end)
+    items = usage_detail(db, target.id, start_dt, end_dt, grade=grade, class_name=class_name)
+    return {
+        "teacher": {"id": target.id, "name": target.name, "subject": normalize_subject(target.subject)},
+        "period": {"start_date": start_date.isoformat(), "end_date": end_date.isoformat()},
+        "items": items,
+    }
+
+
 @router.get("/export")
 def export_balances(
     request: Request,
     semester_id: int | None = Query(None),
-    admin=Depends(get_current_teacher),
+    admin=Depends(require_admin),
     db: Session = Depends(get_db),
 ):
     semester = _semester(db, semester_id)
@@ -100,7 +255,7 @@ def export_balances(
     ws.append(["学号", "姓名", "年级", "班级", "学期星灿币", "累计星灿币"])
     for s in students:
         b = balances[s.id]
-        ws.append([s.student_no, s.name, s.grade, s.class_name, b["semester_balance"], b["total_balance"]])
+        ws.append([s.student_no, s.name, normalize_grade(s.grade) or s.grade, s.class_name, b["semester_balance"], b["total_balance"]])
     buf = io.BytesIO()
     wb.save(buf)
     return Response(

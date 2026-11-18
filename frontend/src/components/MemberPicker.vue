@@ -52,6 +52,7 @@ function confirm() {
 
 <template>
   <van-popup
+    teleport="body"
     :show="show"
     position="bottom"
     round

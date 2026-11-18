@@ -4,6 +4,7 @@ import { showToast } from 'vant'
 import api from '../api'
 import UserMenu from '../components/UserMenu.vue'
 import ClassWorkspace from './admin/ClassWorkspace.vue'
+import UsagePanel from './admin/UsagePanel.vue'
 import { useAuthStore } from '../stores/auth'
 
 const auth = useAuthStore()
@@ -20,12 +21,15 @@ const loading = ref(false)
 const liking = ref(new Set())
 const likingGroup = ref(new Set())
 const search = ref('')
+const myUsage = ref(null)
 
-// 顶部身份：当前班级里的角色（班主任/副班主任/教师），管理员另行标识
+// 顶部身份：管理员 > 当前班级角色 > 学科组长 > 普通教师
 const roleKey = computed(() => {
   if (auth.isAdmin) return 'admin'
   const hit = managedRoles.value.find((r) => r.class_name === className.value)
-  return hit ? hit.duty : 'teacher'
+  if (hit) return hit.duty
+  if (auth.isSubjectLead) return 'subject_lead'
+  return 'teacher'
 })
 const ranked = computed(() => [...roster.value].sort((a, b) => b.semester_balance - a.semester_balance || a.student_no.localeCompare(b.student_no)))
 const visibleRoster = computed(() => {
@@ -33,6 +37,10 @@ const visibleRoster = computed(() => {
   return q ? roster.value.filter((s) => s.name.includes(q) || s.student_no.includes(q)) : roster.value
 })
 const classCoins = computed(() => roster.value.reduce((sum, s) => sum + s.semester_balance, 0))
+const myWeek = computed(() => {
+  const items = myUsage.value?.items || []
+  return items.find((x) => x.teacher_id === auth.teacher?.id) || items[0] || null
+})
 
 async function loadClasses() {
   const { data } = await api.get('/my/classes')
@@ -44,6 +52,15 @@ async function loadRecent() {
   if (!className.value) return
   const { data } = await api.get('/likes/recent', { params: { class_name: className.value, limit: 10 } })
   recent.value = data.items
+}
+
+async function loadMyUsage() {
+  try {
+    const { data } = await api.get('/stats/usage', { params: { period: 'week' } })
+    myUsage.value = data
+  } catch {
+    myUsage.value = null
+  }
 }
 
 async function loadAll() {
@@ -76,6 +93,7 @@ async function likeStudent(s) {
     s.total_balance += 1
     showToast(`👍 ${s.name} +1`)
     loadRecent()
+    loadMyUsage()
   } catch {
     /* 拦截器已提示 */
   } finally {
@@ -92,6 +110,7 @@ async function decrementStudent(s) {
     s.total_balance = data.total_balance
     showToast(`${s.name} −1，已回退最近一次点赞`)
     loadRecent()
+    loadMyUsage()
   } catch {
     /* 拦截器已提示 */
   } finally {
@@ -113,6 +132,7 @@ async function likeGroup(g) {
     }
     showToast(`👍 ${g.name} 全员 +1`)
     loadRecent()
+    loadMyUsage()
   } catch {
     /* 拦截器已提示 */
   } finally {
@@ -153,7 +173,7 @@ onMounted(async () => {
   ])
   semester.value = semesterResponse.data
   managedRoles.value = rolesResponse.data.items
-  await loadAll()
+  await Promise.all([loadAll(), loadMyUsage()])
 })
 </script>
 
@@ -175,6 +195,7 @@ onMounted(async () => {
           </button>
         </div>
         <div class="hero-meta">{{ semester ? semester.name : '尚未激活学期' }}</div>
+        <div v-if="myWeek" class="hero-week">本周 · 👍 {{ myWeek.like_count }} 次 · 使用 {{ myWeek.active_days }} 天</div>
         <div class="hero-stats">
           <div><strong>{{ roster.length }}</strong><span>班级学生</span></div>
           <i></i>
@@ -273,12 +294,20 @@ onMounted(async () => {
         </section>
       </van-tab>
 
+      <van-tab v-if="auth.isSubjectLead" title="小组管理" name="groups">
+        <ClassWorkspace groups-only />
+      </van-tab>
+
       <van-tab v-if="managedRoles.length" title="班级管理" name="manage">
         <ClassWorkspace managed-only />
       </van-tab>
+
+      <van-tab v-if="auth.isSubjectLead" title="使用统计" name="usage">
+        <UsagePanel mode="lead" />
+      </van-tab>
     </van-tabs>
 
-    <van-popup v-model:show="showClassPicker" position="bottom" round>
+    <van-popup teleport="body" v-model:show="showClassPicker" position="bottom" round>
       <div class="class-picker-panel">
         <div class="class-picker-title">选择班级</div>
         <div class="class-picker-list">

@@ -19,7 +19,7 @@ const newPassword = ref('')
 const version = __APP_VERSION__
 
 const role = computed(() => {
-  const key = props.roleKey || (auth.isAdmin ? 'admin' : 'teacher')
+  const key = props.roleKey || (auth.isAdmin ? 'admin' : auth.isSubjectLead ? 'subject_lead' : 'teacher')
   return { key, label: labelOfRole(key) }
 })
 const initial = computed(() => (auth.teacher?.name || '?').slice(-2))
@@ -56,7 +56,7 @@ async function logout() {
     <van-icon name="arrow-down" class="nav-user-caret" />
   </div>
 
-  <van-popup v-model:show="showMenu" position="bottom" round :style="{ paddingBottom: '16px' }">
+  <van-popup teleport="body" v-model:show="showMenu" position="bottom" round :style="{ paddingBottom: '16px' }">
     <van-cell-group :title="accountTitle">
       <van-cell title="修改密码" is-link icon="lock" @click="showMenu = false; showPassword = true" />
       <van-cell title="退出登录" is-link icon="revoke" @click="showMenu = false; logout()" />
@@ -64,7 +64,7 @@ async function logout() {
     </van-cell-group>
   </van-popup>
 
-  <van-dialog v-model:show="showPassword" title="修改密码" show-cancel-button class="form-dialog" @confirm="changePassword">
+  <van-dialog teleport="body" v-model:show="showPassword" title="修改密码" show-cancel-button class="form-dialog" @confirm="changePassword">
     <van-field v-model="oldPassword" type="password" label="原密码" placeholder="请输入原密码" />
     <van-field v-model="newPassword" type="password" label="新密码" placeholder="至少 6 位" />
   </van-dialog>

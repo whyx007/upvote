@@ -7,6 +7,7 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAdmin: (s) => s.teacher?.role === 'admin',
+    isSubjectLead: (s) => s.teacher?.role === 'subject_lead',
     loggedIn: (s) => !!s.token
   },
   actions: {

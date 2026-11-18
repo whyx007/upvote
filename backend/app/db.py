@@ -34,3 +34,8 @@ def ensure_schema(engine):
         if "duty" not in cols:
             with engine.begin() as conn:
                 conn.execute(text("ALTER TABLE teacher_classes ADD COLUMN duty VARCHAR(16) DEFAULT 'teacher'"))
+    if "likes" in tables:
+        indexes = {i["name"] for i in inspector.get_indexes("likes")}
+        if "ix_likes_created_at" not in indexes:
+            with engine.begin() as conn:
+                conn.execute(text("CREATE INDEX IF NOT EXISTS ix_likes_created_at ON likes (created_at)"))

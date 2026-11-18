@@ -70,7 +70,7 @@ onMounted(load)
     </van-cell-group>
     <van-empty v-if="!items.length" description="还没有奖励，先添加兑换目录" />
 
-    <van-dialog v-model:show="showDialog" :title="editing ? '编辑奖励' : '新增奖励'" show-cancel-button class="form-dialog" @confirm="save">
+    <van-dialog teleport="body" v-model:show="showDialog" :title="editing ? '编辑奖励' : '新增奖励'" show-cancel-button class="form-dialog" @confirm="save">
       <van-field v-model="form.name" label="名称" placeholder="如：笔记本" />
       <van-field v-model.number="form.cost_coins" label="所需星灿币" type="digit" placeholder="如：10" />
       <van-field v-model="form.stock" label="库存" type="digit" placeholder="留空 = 不限量" />

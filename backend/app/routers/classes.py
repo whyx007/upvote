@@ -1,12 +1,22 @@
-"""Class roster with balances and group memberships; class teacher assignments."""
+"""Class roster with balances and group memberships; class registry & teacher assignments."""
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models import Group, GroupMember, Semester, Student, Teacher, TeacherClass
-from ..security import get_current_teacher, get_db
+from ..models import Group, GroupMember, SchoolClass, Semester, Student, Teacher, TeacherClass
+from ..security import get_current_teacher, get_db, require_admin
+from ..services.access import all_class_names, assert_class_access, is_admin, is_subject_lead
 from ..services.class_roles import assert_class_manager, normalize_duty, set_class_teacher
+from ..services.class_service import (
+    class_has_students,
+    class_summaries,
+    create_class,
+    ensure_school_class,
+    rename_class,
+    sync_classes_from_students,
+)
+from ..services.grades import grade_of_class, normalize_grade
 from ..services.points import balances_for_students
 from .auth import serialize_teacher
 from .semesters import current_semester
@@ -20,14 +30,125 @@ class AssignTeacherIn(BaseModel):
     duty: str = "teacher"
 
 
+class ClassIn(BaseModel):
+    grade: str
+    class_no: int = Field(ge=1, le=200)
+    enrollment_year: int | None = None
+    name: str | None = None
+
+
+class ClassPatch(BaseModel):
+    name: str | None = None
+    grade: str | None = None
+    class_no: int | None = Field(None, ge=1, le=200)
+    enrollment_year: int | None = None
+    is_active: bool | None = None
+
+
+class BulkClassItem(BaseModel):
+    grade: str
+    count: int = Field(ge=1, le=200)
+    start: int = Field(1, ge=1, le=200)
+    enrollment_year: int | None = None
+
+
+class BulkClassesIn(BaseModel):
+    items: list[BulkClassItem]
+
+
 @router.get("")
-def list_classes(teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
-    classes = db.scalars(select(Student.class_name).where(Student.is_active.is_(True)).distinct()).all()
-    return sorted(set(classes))
+def list_classes(admin=Depends(require_admin), db: Session = Depends(get_db)):
+    return all_class_names(db)
+
+
+@router.get("/registry")
+def class_registry(teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    # 学科组长需要按班级筛选本科目统计，因此允许只读班级列表
+    if not (is_admin(teacher) or is_subject_lead(teacher)):
+        raise HTTPException(status_code=403, detail="需要管理员或学科组长权限")
+    return {"items": class_summaries(db)}
+
+
+@router.post("/registry")
+def create_class_route(body: ClassIn, admin=Depends(require_admin), db: Session = Depends(get_db)):
+    try:
+        klass = create_class(
+            db,
+            grade=body.grade,
+            class_no=body.class_no,
+            enrollment_year=body.enrollment_year,
+            name=body.name,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    db.commit()
+    return {"id": klass.id, "name": klass.name, "grade": klass.grade}
+
+
+@router.post("/registry/bulk")
+def bulk_create_classes(body: BulkClassesIn, admin=Depends(require_admin), db: Session = Depends(get_db)):
+    created, skipped = [], []
+    for item in body.items:
+        for number in range(item.start, item.start + item.count):
+            try:
+                klass = create_class(
+                    db,
+                    grade=item.grade,
+                    class_no=number,
+                    enrollment_year=item.enrollment_year,
+                )
+            except ValueError:
+                skipped.append(f"{normalize_grade(item.grade) or item.grade}{number}班")
+                continue
+            created.append({"id": klass.id, "name": klass.name, "grade": klass.grade})
+    db.commit()
+    return {"created": len(created), "skipped": len(skipped), "items": created, "skipped_names": skipped}
+
+
+@router.post("/registry/sync")
+def sync_classes(admin=Depends(require_admin), db: Session = Depends(get_db)):
+    summary = sync_classes_from_students(db)
+    db.commit()
+    return summary
+
+
+@router.patch("/registry/{class_id}")
+def update_class(class_id: int, body: ClassPatch, admin=Depends(require_admin), db: Session = Depends(get_db)):
+    klass = db.get(SchoolClass, class_id)
+    if klass is None:
+        raise HTTPException(status_code=404, detail="班级不存在")
+    try:
+        if body.name is not None and body.name.strip() != klass.name:
+            rename_class(db, klass, body.name)
+        if body.grade is not None:
+            klass.grade = normalize_grade(body.grade) or klass.grade
+        if body.class_no is not None:
+            klass.class_no = body.class_no
+        if body.enrollment_year is not None:
+            klass.enrollment_year = body.enrollment_year
+        if body.is_active is not None:
+            klass.is_active = body.is_active
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    db.commit()
+    return {"id": klass.id, "name": klass.name, "grade": klass.grade, "is_active": klass.is_active}
+
+
+@router.delete("/registry/{class_id}")
+def deactivate_class(class_id: int, admin=Depends(require_admin), db: Session = Depends(get_db)):
+    klass = db.get(SchoolClass, class_id)
+    if klass is None:
+        raise HTTPException(status_code=404, detail="班级不存在")
+    if class_has_students(db, klass.name):
+        raise HTTPException(status_code=400, detail="该班级还有学生，请先转班或停用学生")
+    klass.is_active = False
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/{class_name}/teachers")
 def class_teachers(class_name: str, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    assert_class_access(db, teacher, class_name)
     rows = db.execute(
         select(Teacher, TeacherClass.duty)
         .join(TeacherClass, TeacherClass.teacher_id == Teacher.id)
@@ -52,6 +173,7 @@ def assign_class_teacher(
         duty = normalize_duty(body.duty)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    ensure_school_class(db, class_name, grade=grade_of_class(class_name))
     assignment = set_class_teacher(db, target.id, class_name, duty)
     db.commit()
     return {"ok": True, "teacher_id": target.id, "duty": assignment.duty}
@@ -82,6 +204,7 @@ def class_roster(
     teacher=Depends(get_current_teacher),
     db: Session = Depends(get_db),
 ):
+    assert_class_access(db, teacher, class_name)
     semester = db.get(Semester, semester_id) if semester_id else current_semester(db)
     students = db.scalars(
         select(Student)

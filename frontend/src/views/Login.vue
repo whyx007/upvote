@@ -35,7 +35,7 @@ async function onSubmit() {
     </div>
     <van-form @submit="onSubmit">
       <van-cell-group inset>
-        <van-field v-model="username" name="username" label="工号" placeholder="请输入工号" :rules="[{ required: true, message: '请输入工号' }]" />
+        <van-field v-model="username" name="username" label="工号/手机" placeholder="请输入工号或手机号" :rules="[{ required: true, message: '请输入工号或手机号' }]" />
         <van-field v-model="password" type="password" name="password" label="密码" placeholder="请输入密码" :rules="[{ required: true, message: '请输入密码' }]" />
       </van-cell-group>
       <div style="margin: 24px 16px">

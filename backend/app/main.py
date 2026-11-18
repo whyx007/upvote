@@ -8,8 +8,10 @@ from sqlalchemy.engine.url import make_url
 from .config import Settings
 from .db import Base, ensure_schema, make_engine, make_session_factory
 from .routers import (
+    admin,
     auth,
     classes,
+    exports,
     groups,
     imports,
     likes,
@@ -48,6 +50,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.login_failures = {}
 
     app.include_router(auth.router)
+    app.include_router(admin.router)
     app.include_router(imports.router)
     app.include_router(students.router)
     app.include_router(groups.router)
@@ -58,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(rewards.router)
     app.include_router(redemptions.router)
     app.include_router(stats.router)
+    app.include_router(exports.router)
 
     @app.get("/api/health")
     def health():

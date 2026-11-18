@@ -3,16 +3,17 @@ import { computed, onMounted, ref } from 'vue'
 import { showToast, showConfirmDialog } from 'vant'
 import api from '../../api'
 import MemberPicker from '../../components/MemberPicker.vue'
-import { GRADE_ORDER, gradeOfClass } from '../../constants'
+import { GRADE_ORDER, gradeOfClass, shortClassName } from '../../constants'
 
 const props = defineProps({
-  managedOnly: { type: Boolean, default: false }
+  managedOnly: { type: Boolean, default: false },
+  groupsOnly: { type: Boolean, default: false }
 })
 const classes = ref([])
 const className = ref('')
 const dutyMap = ref({})
 const showClassPopup = ref(false)
-const tab = ref('students')
+const tab = ref(props.groupsOnly ? 'groups' : 'students')
 const roster = ref([])
 const groups = ref([])
 const classTeachers = ref([])
@@ -35,12 +36,15 @@ const filteredRoster = computed(() => {
 })
 
 const currentDuty = computed(() => dutyMap.value[className.value] || '')
-const canManageTeachers = computed(() => !props.managedOnly || currentDuty.value === 'head')
+const canManageTeachers = computed(() => !props.groupsOnly && (!props.managedOnly || currentDuty.value === 'head'))
 const dutyLabels = { teacher: '任课教师', head: '班主任', deputy: '副班主任' }
 const dutyLabel = (duty) => dutyLabels[duty] || '任课教师'
 
 async function loadClasses() {
-  if (props.managedOnly) {
+  if (props.groupsOnly) {
+    const { data } = await api.get('/my/classes')
+    classes.value = data
+  } else if (props.managedOnly) {
     const { data } = await api.get('/my/class-roles')
     classes.value = data.items.map((item) => item.class_name)
     dutyMap.value = Object.fromEntries(data.items.map((item) => [item.class_name, item.duty]))
@@ -326,7 +330,7 @@ onMounted(async () => {
             :class="{ active: c === className }"
             @click="selectClass(c)"
           >
-            {{ c.replace(g.grade, '') }}
+            {{ shortClassName(c) }}
           </button>
         </div>
       </div>
@@ -342,7 +346,7 @@ onMounted(async () => {
       </div>
 
       <van-tabs v-model:active="tab" sticky>
-        <van-tab :title="`学生 ${roster.length}`" name="students">
+        <van-tab v-if="!groupsOnly" :title="`学生 ${roster.length}`" name="students">
           <div class="toolbar">
             <van-search v-model="studentSearch" placeholder="搜索姓名 / 学号" style="flex: 1" />
             <van-button size="small" type="warning" icon="plus" @click="openStudentCreate">新增学生</van-button>
@@ -355,7 +359,7 @@ onMounted(async () => {
                   <span class="st-name">{{ s.name }}</span>
                   <van-tag v-if="s.gender" :type="s.gender === '男' ? 'primary' : 'danger'" plain size="medium">{{ s.gender }}</van-tag>
                 </div>
-                <div class="st-no">{{ s.student_no }}</div>
+                <div class="st-no">{{ s.student_no }}<span v-if="s.enrollment_year"> · {{ s.enrollment_year }}级</span></div>
                 <div class="st-groups">
                   <span v-for="gname in s.groups" :key="gname" class="st-group">{{ gname }}</span>
                   <span v-if="!s.groups.length" class="st-group none">未分组</span>
@@ -399,7 +403,7 @@ onMounted(async () => {
           </div>
         </van-tab>
 
-        <van-tab :title="`教师 ${classTeachers.length}`" name="teachers">
+        <van-tab v-if="!groupsOnly" :title="`教师 ${classTeachers.length}`" name="teachers">
           <div class="toolbar">
             <template v-if="canManageTeachers">
               <van-button size="small" type="warning" icon="plus" @click="openAssign">指派教师 / 设置角色</van-button>
@@ -434,7 +438,7 @@ onMounted(async () => {
     </main>
 
     <!-- 窄屏班级选择 -->
-    <van-popup v-model:show="showClassPopup" position="left" :style="{ width: '70%', height: '100%' }">
+    <van-popup teleport="body" v-model:show="showClassPopup" position="left" :style="{ width: '70%', height: '100%' }">
       <div style="padding: 16px">
         <div v-for="g in groupedClasses" :key="g.grade" class="nav-grade">
           <div class="nav-grade-title">{{ g.grade }}</div>
@@ -446,7 +450,7 @@ onMounted(async () => {
               :class="{ active: c === className }"
               @click="selectClass(c)"
             >
-              {{ c.replace(g.grade, '') }}
+              {{ shortClassName(c) }}
             </button>
           </div>
         </div>
@@ -454,7 +458,7 @@ onMounted(async () => {
     </van-popup>
 
     <!-- 学生编辑 -->
-    <van-dialog v-model:show="showStudentDialog" :title="editingStudent ? '编辑学生' : `新增学生 · ${className}`" show-cancel-button class="form-dialog" @confirm="saveStudent">
+    <van-dialog teleport="body" v-model:show="showStudentDialog" :title="editingStudent ? '编辑学生' : `新增学生 · ${className}`" show-cancel-button class="form-dialog" @confirm="saveStudent">
       <van-field v-model="studentForm.student_no" label="学号" placeholder="必填，唯一" :disabled="!!editingStudent" />
       <van-field v-model="studentForm.name" label="姓名" placeholder="必填" />
       <van-field label="性别">
@@ -466,12 +470,12 @@ onMounted(async () => {
         </template>
       </van-field>
       <van-field :model-value="className" label="班级" disabled />
-      <van-field v-model="studentForm.grade" label="年级" placeholder="如：初一" />
-      <van-field v-model.number="studentForm.enrollment_year" label="入学年份" type="digit" placeholder="如：2026" />
+      <van-field v-model="studentForm.grade" label="年级" placeholder="如：七年级" />
+      <van-field v-model.number="studentForm.enrollment_year" label="级（入学年份）" type="digit" placeholder="如：2026" />
     </van-dialog>
 
     <!-- 小组名称 -->
-    <van-dialog v-model:show="showGroupDialog" :title="editingGroup ? '小组改名' : `新增小组 · ${className}`" show-cancel-button class="form-dialog" @confirm="saveGroup">
+    <van-dialog teleport="body" v-model:show="showGroupDialog" :title="editingGroup ? '小组改名' : `新增小组 · ${className}`" show-cancel-button class="form-dialog" @confirm="saveGroup">
       <van-field v-model="groupName" label="小组名称" placeholder="如：星辰组" />
       <div v-if="!editingGroup" class="muted" style="padding: 8px 16px">创建后将自动打开成员勾选器</div>
     </van-dialog>
@@ -495,7 +499,7 @@ onMounted(async () => {
     </transition>
 
     <!-- 指派教师 / 设置班级角色 -->
-    <van-dialog v-model:show="showAssignDialog" :title="`指派教师到 ${className}`" :show-confirm-button="false" class="form-dialog">
+    <van-dialog teleport="body" v-model:show="showAssignDialog" :title="`指派教师到 ${className}`" :show-confirm-button="false" class="form-dialog">
       <van-field label="班级角色">
         <template #input>
           <van-radio-group v-model="assignDuty" direction="horizontal">
