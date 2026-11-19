@@ -294,8 +294,8 @@ onMounted(async () => {
         </section>
       </van-tab>
 
-      <van-tab v-if="auth.isSubjectLead" title="小组管理" name="groups">
-        <ClassWorkspace groups-only />
+      <van-tab v-if="auth.isSubjectLead" title="小组查看" name="groups">
+        <ClassWorkspace groups-only read-only />
       </van-tab>
 
       <van-tab v-if="managedRoles.length" title="班级管理" name="manage">

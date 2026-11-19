@@ -7,7 +7,8 @@ import { GRADE_ORDER, gradeOfClass, shortClassName } from '../../constants'
 
 const props = defineProps({
   managedOnly: { type: Boolean, default: false },
-  groupsOnly: { type: Boolean, default: false }
+  groupsOnly: { type: Boolean, default: false },
+  readOnly: { type: Boolean, default: false }
 })
 const classes = ref([])
 const className = ref('')
@@ -376,8 +377,9 @@ onMounted(async () => {
 
         <van-tab :title="`小组 ${groups.length}`" name="groups">
           <div class="toolbar">
-            <van-button size="small" type="warning" icon="plus" @click="openGroupCreate">新增小组</van-button>
-            <span class="muted">点成员后的 × 移除（可撤销）；「＋ 添加成员」从本班未入组学生中选择</span>
+            <van-button v-if="!readOnly" size="small" type="warning" icon="plus" @click="openGroupCreate">新增小组</van-button>
+            <span v-if="readOnly" class="muted">仅可查看：班主任/副班主任可以管理小组</span>
+            <span v-else class="muted">点成员后的 × 移除（可撤销）；「＋ 添加成员」从本班未入组学生中选择</span>
           </div>
           <div class="group-cards">
             <div v-for="g in groups" :key="g.id" class="group-card">
@@ -385,21 +387,23 @@ onMounted(async () => {
                 <b>{{ g.name }}</b>
                 <van-tag type="warning" plain size="medium">{{ g.member_count }} 人</van-tag>
                 <div class="spacer"></div>
-                <van-button size="mini" plain icon="edit" @click="openGroupRename(g)">改名</van-button>
-                <van-button size="mini" plain type="danger" icon="delete-o" @click="removeGroup(g)">删除</van-button>
+                <template v-if="!readOnly">
+                  <van-button size="mini" plain icon="edit" @click="openGroupRename(g)">改名</van-button>
+                  <van-button size="mini" plain type="danger" icon="delete-o" @click="removeGroup(g)">删除</van-button>
+                </template>
               </div>
               <div class="group-members">
                 <span v-for="m in g.members" :key="m.id" class="member-chip">
                   {{ m.name }}
-                  <button class="chip-x" :aria-label="`从${g.name}移除${m.name}`" @click="removeMember(g, m)">×</button>
+                  <button v-if="!readOnly" class="chip-x" :aria-label="`从${g.name}移除${m.name}`" @click="removeMember(g, m)">×</button>
                 </span>
-                <button class="chip-add" @click="openAddPicker(g)">＋ 添加成员</button>
+                <button v-if="!readOnly" class="chip-add" @click="openAddPicker(g)">＋ 添加成员</button>
               </div>
               <div v-if="!g.members || !g.members.length" class="muted" style="margin-top: 6px">
-                暂无成员，点「＋ 添加成员」从本班学生中勾选
+                {{ readOnly ? '暂无成员' : '暂无成员，点「＋ 添加成员」从本班学生中勾选' }}
               </div>
             </div>
-            <van-empty v-if="!groups.length" description="还没有小组，点「新增小组」创建并添加成员" />
+            <van-empty v-if="!groups.length" :description="readOnly ? '还没有小组' : '还没有小组，点「新增小组」创建并添加成员'" />
           </div>
         </van-tab>
 

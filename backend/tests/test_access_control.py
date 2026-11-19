@@ -126,7 +126,7 @@ def test_teacher_auto_ids_start_at_t001(client, admin_headers):
     assert r2.json()["employee_no"] == "T002"
 
 
-def test_subject_lead_can_manage_groups_in_assigned_class_only(client, admin_headers, school):
+def test_only_head_or_deputy_can_manage_groups(client, admin_headers, school):
     lead = _make(client, admin_headers, "T003", "语文组长", "语文", role="subject_lead")
     _assign(client, admin_headers, lead["id"], ["初一1班"])
     regular = _make(client, admin_headers, "T004", "普通老师", "数学")
@@ -134,23 +134,24 @@ def test_subject_lead_can_manage_groups_in_assigned_class_only(client, admin_hea
     lead_headers = login_headers(client, "T003", "123456")
     regular_headers = login_headers(client, "T004", "123456")
 
+    # 管理员先建一个组；学科组长可以查看，但不能管理
     r = client.post(
         "/api/groups",
-        headers=lead_headers,
-        json={"name": "组长建的组", "class_name": "初一1班", "member_student_nos": ["2026001"]},
+        headers=admin_headers,
+        json={"name": "管理员建的组", "class_name": "初一1班", "member_student_nos": ["2026001"]},
     )
     assert r.status_code == 200, r.text
     gid = r.json()["id"]
-    assert client.patch(f"/api/groups/{gid}", headers=lead_headers, json={"name": "组长改名"}).status_code == 200
-    assert client.delete(f"/api/groups/{gid}", headers=lead_headers).status_code == 200
-
-    # 不是本人任教班不能建组
+    assert client.get("/api/groups", headers=lead_headers, params={"class_name": "初一1班"}).status_code == 200
     assert client.post(
         "/api/groups",
         headers=lead_headers,
-        json={"name": "跨班组", "class_name": "初一2班", "member_student_nos": []},
+        json={"name": "组长建的组", "class_name": "初一1班", "member_student_nos": []},
     ).status_code == 403
-    # 普通任课教师仍不能建组
+    assert client.patch(f"/api/groups/{gid}", headers=lead_headers, json={"name": "组长改名"}).status_code == 403
+    assert client.delete(f"/api/groups/{gid}", headers=lead_headers).status_code == 403
+
+    # 普通任课教师也不能建组
     assert client.post(
         "/api/groups",
         headers=regular_headers,
@@ -162,3 +163,19 @@ def test_subject_lead_can_manage_groups_in_assigned_class_only(client, admin_hea
         headers=admin_headers,
         json={"name": "校级组", "class_name": "初一2班", "member_student_nos": []},
     ).status_code == 200
+
+    # 学科组长兼任班主任后，可以管理本班小组
+    assert client.post(
+        "/api/classes/初一1班/teachers",
+        headers=admin_headers,
+        json={"teacher_id": lead["id"], "duty": "head"},
+    ).status_code == 200
+    r = client.post(
+        "/api/groups",
+        headers=lead_headers,
+        json={"name": "兼任班主任建的组", "class_name": "初一1班", "member_student_nos": []},
+    )
+    assert r.status_code == 200, r.text
+    own_gid = r.json()["id"]
+    assert client.patch(f"/api/groups/{own_gid}", headers=lead_headers, json={"name": "兼任班主任改名"}).status_code == 200
+    assert client.delete(f"/api/groups/{own_gid}", headers=lead_headers).status_code == 200

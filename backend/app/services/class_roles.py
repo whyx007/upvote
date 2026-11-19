@@ -98,13 +98,8 @@ def assert_any_class_manager(db: Session, teacher: Teacher) -> None:
 
 
 def assert_class_group_manager(db: Session, teacher: Teacher, class_name: str) -> None:
-    """小组管理：校长/主任全权；学科组长限本人任教班；班主任/副班主任限本班。"""
-    from .access import assigned_class_names, is_admin, is_subject_lead
+    """小组管理：仅班主任/副班主任；管理员全权。
 
-    if is_admin(teacher):
-        return
-    if is_subject_lead(teacher):
-        if class_name in assigned_class_names(db, teacher):
-            return
-        raise HTTPException(status_code=403, detail="学科组长只能管理本人任教班级的小组")
+    学科组长如果没有兼任本班班主任/副班主任，只能查看，不能管理小组。
+    """
     assert_class_manager(db, teacher, class_name)

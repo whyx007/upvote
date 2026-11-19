@@ -15,7 +15,7 @@
 - 设计文档：`docs/superpowers/specs/2026-11-13-upvote-design.md`。
 - 开发约定：后端 pytest TDD；`data/` 存放 SQLite 与备份，不入库。
 - 班级权限：`teacher_classes.duty = teacher/head/deputy`；班主任可管本班学生、小组、任课教师，副班主任仅学生/小组，管理员全权；权限校验集中在 `app/services/class_roles.py`。
-- 小组管理：学科组长可在本人任教班建立/管理小组；校长/主任任意班；班主任/副班主任限本班（`assert_class_group_manager`）。
+- 小组管理：仅班主任/副班主任（校长/主任后台全权）可建组/改名/删除/加减成员；学科组长等只读查看，兼任班主任/副班主任时按班级职责可管理（`assert_class_group_manager`）。
 - 工号规则：教师未填工号时自动生成 `T001`、`T002`…（admin 不占 T 号）。
 - 三层数据权限：`teachers.role = teacher/subject_lead/admin`；任课教师只看本人任教班和本人点赞，学科组长可看同学科教师汇总/明细，校长/主任全权；集中校验在 `app/services/access.py`。
 - 班级主数据：`classes` 表（年级/班号/级），支持先建空班再导入学生；学生 `enrollment_year` 即“级”（入学年份）。
