@@ -516,6 +516,44 @@ html, body, #app {
   color: #b6a88f;
   font-size: 9px;
 }
+.student-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+  margin: 8px 0 4px;
+}
+.student-stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 2px;
+  border-radius: 9px;
+  background: #fff8ec;
+}
+.student-stat strong {
+  color: #e89419;
+  font-size: 18px;
+  line-height: 1;
+}
+.student-stat span {
+  color: #b6a88f;
+  font-size: 9px;
+}
+.student-stat.mine {
+  background: #f3f8ff;
+}
+.student-stat.mine strong {
+  color: #4b8bc6;
+}
+.student-stat.mine span {
+  color: #7fa4c9;
+}
+.student-split + .student-sub {
+  margin-top: 3px;
+}
 .student-sub {
   max-width: 100%;
   margin: -5px 0 9px;
@@ -693,7 +731,12 @@ html, body, #app {
   .student-balance { margin: 7px 0 8px; }
   .student-balance strong { font-size: 18px; }
   .student-balance small { display: none; }
+  .student-split { gap: 3px; margin: 6px 0 3px; }
+  .student-stat { padding: 3px 1px; border-radius: 7px; }
+  .student-stat strong { font-size: 15px; }
+  .student-stat span { font-size: 8px; }
   .student-sub { margin: -4px 0 7px; font-size: 8px; }
+  .student-split + .student-sub { margin-top: 2px; }
   .like-controls { grid-template-columns: 27px minmax(0, 1fr); gap: 4px; }
   .decrement-btn { width: 27px; height: 29px; border-radius: 9px; }
   .like-btn.van-button { height: 29px; padding: 0 3px; font-size: 12px; }

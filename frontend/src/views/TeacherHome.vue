@@ -278,13 +278,23 @@ onMounted(async () => {
                   <div class="student-avatar" :class="s.gender === '女' ? 'girl' : 'boy'">{{ avatarText(s.name) }}</div>
                   <div class="student-name">{{ s.name }}</div>
                   <div class="student-no">{{ s.student_no }}</div>
-                  <div class="student-balance">
+                  <div v-if="isClassManager" class="student-split">
+                    <div class="student-stat">
+                      <strong>{{ s.student_total_likes }}</strong>
+                      <span>共计</span>
+                    </div>
+                    <div class="student-stat mine">
+                      <strong>{{ s.my_total_likes }}</strong>
+                      <span>我赞</span>
+                    </div>
+                  </div>
+                  <div v-else class="student-balance">
                     <span>👍</span>
-                    <strong>{{ isClassManager ? s.student_total_likes : s.my_total_likes }}</strong>
-                    <small>{{ isClassManager ? '全班累计' : '我累计' }}</small>
+                    <strong>{{ s.my_total_likes }}</strong>
+                    <small>我累计</small>
                   </div>
                   <div class="student-sub">
-                    <template v-if="isClassManager">本学期 {{ s.student_semester_likes }} · 我累计 {{ s.my_total_likes }}</template>
+                    <template v-if="isClassManager">本学期 共计 {{ s.student_semester_likes }} · 我赞 {{ s.my_semester_likes }}</template>
                     <template v-else>本学期 {{ s.my_semester_likes }} 次</template>
                   </div>
                   <div class="like-controls">
