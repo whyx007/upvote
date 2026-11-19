@@ -38,9 +38,13 @@ const isClassManager = computed(() => classScope.value === 'class_manager')
 const mySemesterLikes = computed(() =>
   roster.value.reduce((sum, s) => sum + (s.my_semester_likes || 0), 0)
 )
+const myTotalLikes = computed(() =>
+  roster.value.reduce((sum, s) => sum + (s.my_total_likes || 0), 0)
+)
 const ranked = computed(() =>
   [...roster.value].sort(
     (a, b) =>
+      (b.my_total_likes || 0) - (a.my_total_likes || 0) ||
       (b.my_semester_likes || 0) - (a.my_semester_likes || 0) ||
       a.student_no.localeCompare(b.student_no)
   )
@@ -226,15 +230,16 @@ onMounted(async () => {
         </div>
         <div class="hero-meta">{{ semester ? semester.name : '尚未激活学期' }}</div>
         <div v-if="myWeek" class="hero-week">本周 · 👍 {{ myWeek.like_count }} 次 · 使用 {{ myWeek.active_days }} 天</div>
-        <div v-if="isClassManager" class="hero-week">全班累计 👍 {{ classTotalLikes }} 次 · 我本学期 👍 {{ mySemesterLikes }} 次</div>
+        <div v-if="isClassManager" class="hero-week">全班累计 👍 {{ classTotalLikes }} 次 · 本学期 {{ classSemesterLikes }} 次</div>
+        <div v-else class="hero-week">我累计 👍 {{ myTotalLikes }} 次 · 本学期 {{ mySemesterLikes }} 次</div>
         <div class="hero-stats">
           <div><strong>{{ roster.length }}</strong><span>班级学生</span></div>
           <i></i>
           <div><strong>{{ groups.length }}</strong><span>学习小组</span></div>
           <i></i>
           <div>
-            <strong>{{ isClassManager ? classSemesterLikes : mySemesterLikes }}</strong>
-            <span>{{ isClassManager ? '本学期全班点赞' : '本学期我的点赞' }}</span>
+            <strong>{{ isClassManager ? classTotalLikes : myTotalLikes }}</strong>
+            <span>{{ isClassManager ? '全班累计点赞' : '我累计点赞' }}</span>
           </div>
         </div>
       </div>
@@ -275,12 +280,12 @@ onMounted(async () => {
                   <div class="student-no">{{ s.student_no }}</div>
                   <div class="student-balance">
                     <span>👍</span>
-                    <strong>{{ isClassManager ? s.student_semester_likes : s.my_semester_likes }}</strong>
-                    <small>{{ isClassManager ? '全班' : '我赞' }}</small>
+                    <strong>{{ isClassManager ? s.student_total_likes : s.my_total_likes }}</strong>
+                    <small>{{ isClassManager ? '全班累计' : '我累计' }}</small>
                   </div>
                   <div class="student-sub">
-                    <template v-if="isClassManager">我赞 {{ s.my_semester_likes }} · 累计 {{ s.student_total_likes }}</template>
-                    <template v-else>累计 {{ s.my_total_likes }}</template>
+                    <template v-if="isClassManager">本学期 {{ s.student_semester_likes }} · 我累计 {{ s.my_total_likes }}</template>
+                    <template v-else>本学期 {{ s.my_semester_likes }} 次</template>
                   </div>
                   <div class="like-controls">
                     <button
@@ -322,7 +327,7 @@ onMounted(async () => {
         <section class="like-section rank-section">
           <div class="section-heading">
             <div><span class="section-eyebrow">MY SHINING STARS</span><h3>我的点赞榜</h3></div>
-            <span class="section-tip">按我本学期点赞数排序</span>
+            <span class="section-tip">按我累计点赞数排序</span>
           </div>
           <div class="rank-list">
             <div v-for="(s, i) in ranked" :key="s.id" class="rank-row" :class="{ 'rank-top': i < 3 }">
@@ -330,9 +335,9 @@ onMounted(async () => {
               <div class="student-avatar small" :class="s.gender === '女' ? 'girl' : 'boy'">{{ avatarText(s.name) }}</div>
               <div class="rank-person"><strong>{{ s.name }}</strong><span>{{ s.student_no }}</span></div>
               <div class="rank-coins">
-                <strong>👍 {{ s.my_semester_likes }}</strong>
-                <span v-if="isClassManager">全班 {{ s.student_semester_likes }} · 累计 {{ s.student_total_likes }}</span>
-                <span v-else>累计 {{ s.my_total_likes }}</span>
+                <strong>👍 {{ s.my_total_likes }}</strong>
+                <span v-if="isClassManager">全班累计 {{ s.student_total_likes }} · 本学期 {{ s.student_semester_likes }}</span>
+                <span v-else>本学期 {{ s.my_semester_likes }} 次</span>
               </div>
             </div>
           </div>

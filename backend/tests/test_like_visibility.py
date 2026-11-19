@@ -214,6 +214,32 @@ def test_class_totals_follow_current_class_and_ignore_revoked(client, admin_head
     assert _row(other_payload, "2026002")["student_semester_likes"] == 1
 
 
+def test_cumulative_likes_survive_semester_switch(client, admin_headers, school):
+    sid = school["student_ids"]["2026001"]
+    _like(client, school["teacher_headers"], sid)
+
+    r = client.post(
+        "/api/semesters",
+        headers=admin_headers,
+        json={"name": "第二学期", "start_date": "2027-02-01", "end_date": "2027-07-01"},
+    )
+    assert r.status_code == 200, r.text
+    assert client.post(f"/api/semesters/{r.json()['id']}/activate", headers=admin_headers).status_code == 200
+
+    row = _row(_roster(client, school["teacher_headers"]), "2026001")
+    assert row["my_semester_likes"] == 0
+    assert row["my_total_likes"] == 1
+
+    _like(client, school["teacher_headers"], sid)
+    row = _row(_roster(client, school["teacher_headers"]), "2026001")
+    assert row["my_semester_likes"] == 1
+    assert row["my_total_likes"] == 2
+
+    admin_row = _row(_roster(client, admin_headers), "2026001")
+    assert admin_row["student_semester_likes"] == 1
+    assert admin_row["student_total_likes"] == 2
+
+
 def test_group_like_response_only_returns_my_counts(client, admin_headers, school):
     r = client.post(
         "/api/likes",
