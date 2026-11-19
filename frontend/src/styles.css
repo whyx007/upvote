@@ -737,6 +737,10 @@ html, body, #app {
   .student-stat span { font-size: 8px; }
   .student-sub { margin: -4px 0 7px; font-size: 8px; }
   .student-split + .student-sub { margin-top: 2px; }
+  .picker-grid { gap: 5px; padding: 6px 10px 14px; }
+  .picker-tile { padding: 6px 3px; border-radius: 8px; }
+  .picker-tile-name { font-size: 12px; }
+  .picker-tile-other { font-size: 7px; }
   .like-controls { grid-template-columns: 27px minmax(0, 1fr); gap: 4px; }
   .decrement-btn { width: 27px; height: 29px; border-radius: 9px; }
   .like-btn.van-button { height: 29px; padding: 0 3px; font-size: 12px; }
@@ -1167,6 +1171,48 @@ html, body, #app {
   overflow-y: auto;
   max-height: calc(82vh - 170px);
   padding-bottom: 16px;
+}
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  padding: 8px 16px 16px;
+}
+.picker-tile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 7px 5px;
+  border: 1px solid #eef0f3;
+  border-radius: 10px;
+  background: #fff;
+  color: #323233;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.picker-tile.checked {
+  border-color: #ffb74d;
+  background: #fff8ec;
+}
+.picker-tile-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.picker-tile-other {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: #e89419;
+  font-size: 8px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* 滚动条沿用主题色 */

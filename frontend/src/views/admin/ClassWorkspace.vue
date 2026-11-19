@@ -238,9 +238,22 @@ async function onPickerConfirm(ids) {
     showToast('请先勾选要添加的学生')
     return
   }
+  const selected = roster.value.filter((s) => ids.includes(s.id))
+  const conflicts = selected.filter((s) => (s.groups || []).length)
+  if (conflicts.length) {
+    const detail = conflicts.map((s) => `${s.name}（${s.groups.join('、')}）`).join('、')
+    try {
+      await showConfirmDialog({
+        title: '学生已在其他小组',
+        message: `${detail} 已在其他小组。允许一人同时在多个小组，确定继续添加？`
+      })
+    } catch {
+      return
+    }
+  }
   try {
     const existing = (pickerGroup.value.members || []).map((m) => m.student_no)
-    const added = roster.value.filter((s) => ids.includes(s.id)).map((s) => s.student_no)
+    const added = selected.map((s) => s.student_no)
     await api.patch(`/groups/${pickerGroup.value.id}`, { member_student_nos: [...existing, ...added] })
     pickerShow.value = false
     showToast(`已添加 ${added.length} 人`)
