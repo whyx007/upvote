@@ -130,7 +130,7 @@ const showGroupDialog = ref(false)
 const editingGroup = ref(null)
 const groupName = ref('')
 const showBatchGroupDialog = ref(false)
-const batchGroupText = ref('')
+const batchGroupCount = ref(6)
 const pickerShow = ref(false)
 const pickerGroup = ref(null)
 const pickerSelected = ref([])
@@ -178,31 +178,24 @@ async function saveGroup() {
 }
 
 function openBatchGroupCreate() {
-  batchGroupText.value = ''
+  batchGroupCount.value = 6
   showBatchGroupDialog.value = true
 }
 
-function fillDefaultGroupNames() {
-  batchGroupText.value = Array.from({ length: 6 }, (_, i) => `第${i + 1}组`).join('\n')
-}
-
 async function saveBatchGroups() {
-  const names = [
-    ...new Set(
-      batchGroupText.value
-        .split(/\r?\n/)
-        .map((name) => name.trim())
-        .filter(Boolean)
-    )
-  ]
-  if (!names.length) {
-    showToast('请输入至少一个小组名称')
+  const count = Number(batchGroupCount.value)
+  if (!Number.isInteger(count) || count < 1 || count > 100) {
+    showToast('请输入 1-100 之间的数量')
     return
   }
   try {
-    const { data } = await api.post('/groups/batch', { class_name: className.value, names })
-    const skipped = data.skipped?.length ? `，跳过 ${data.skipped.length} 个已存在` : ''
-    showToast(`新增 ${data.created} 个小组${skipped}`)
+    const { data } = await api.post('/groups/batch', {
+      class_name: className.value,
+      count
+    })
+    const preview = data.items.slice(0, 3).join('、')
+    const more = data.items.length > 3 ? ' 等' : ''
+    showToast(`新增 ${data.created} 个小组：${preview}${more}`)
     showBatchGroupDialog.value = false
     loadClassData()
   } catch {
@@ -546,16 +539,13 @@ onMounted(async () => {
     <!-- 批量新增小组 -->
     <van-dialog teleport="body" v-model:show="showBatchGroupDialog" :title="`批量新增小组 · ${className}`" show-cancel-button class="form-dialog" @confirm="saveBatchGroups">
       <van-field
-        v-model="batchGroupText"
-        label="小组名称"
-        type="textarea"
-        rows="5"
-        autosize
-        placeholder="每行一个名称，例如：星辰组 / 追光组"
+        v-model.number="batchGroupCount"
+        label="新增数量"
+        type="digit"
+        placeholder="如：6"
       />
-      <div class="muted" style="padding: 0 16px 8px">每行一个名称；已存在的名称会自动跳过。</div>
-      <div style="padding: 0 16px 10px">
-        <van-button size="small" plain type="warning" @click="fillDefaultGroupNames">填入 6 个默认组名</van-button>
+      <div class="muted" style="padding: 0 16px 10px">
+        按已有组名自动续号：已有第一组，则新增第二组、第三组…；没有编号组时从第一组开始。
       </div>
     </van-dialog>
 

@@ -10,6 +10,7 @@ from ..security import get_current_teacher, get_db
 from ..services.access import assert_class_access, is_admin, visible_class_names
 from ..services.class_roles import assert_class_group_manager
 from ..services.class_service import ensure_school_class
+from ..services.group_names import next_group_names
 
 router = APIRouter(prefix="/api/groups", tags=["groups"])
 
@@ -28,7 +29,8 @@ class GroupPatch(BaseModel):
 
 class GroupBatchIn(BaseModel):
     class_name: str
-    names: list[str] = Field(min_length=1, max_length=100)
+    names: list[str] | None = Field(default=None, max_length=100)
+    count: int | None = Field(default=None, ge=1, le=100)
 
 
 class GroupRandomizeIn(BaseModel):
@@ -106,28 +108,40 @@ def create_group(body: GroupIn, teacher=Depends(get_current_teacher), db: Sessio
 
 @router.post("/batch")
 def create_groups_batch(body: GroupBatchIn, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
-    """批量新增小组；已存在的名称跳过，不影响其余名称创建。"""
+    """批量新增小组。
+
+    - 传 count：按已有“第N组/第一组”的序号自动续号；
+    - 传 names：按给定名称创建，已存在的名称跳过。
+    """
     assert_class_group_manager(db, teacher, body.class_name)
-    names: list[str] = []
-    for raw in body.names:
-        name = (raw or "").strip()
-        if not name or name in names:
-            continue
-        if len(name) > 64:
-            raise HTTPException(status_code=400, detail=f"小组名称过长：{name[:20]}…")
-        names.append(name)
-    if not names:
-        raise HTTPException(status_code=400, detail="请至少提供一个小组名称")
+    if body.count is not None and body.names:
+        raise HTTPException(status_code=400, detail="count 和 names 只能提供一个")
 
     ensure_school_class(db, body.class_name)
     existing = set(
         db.scalars(select(Group.name).where(Group.class_name == body.class_name)).all()
     )
+
+    if body.count is not None:
+        names = next_group_names(existing, body.count)
+        skipped: list[str] = []
+    else:
+        names = []
+        for raw in body.names or []:
+            name = (raw or "").strip()
+            if not name or name in names:
+                continue
+            if len(name) > 64:
+                raise HTTPException(status_code=400, detail=f"小组名称过长：{name[:20]}…")
+            names.append(name)
+        if not names:
+            raise HTTPException(status_code=400, detail="请至少提供一个小组名称")
+        skipped = [name for name in names if name in existing]
+        names = [name for name in names if name not in existing]
+
     created: list[str] = []
-    skipped: list[str] = []
     for name in names:
         if name in existing:
-            skipped.append(name)
             continue
         db.add(Group(name=name, class_name=body.class_name))
         existing.add(name)

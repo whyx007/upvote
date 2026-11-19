@@ -54,6 +54,46 @@ def test_batch_create_groups_skips_existing(client, admin_headers, school):
     assert {g["name"] for g in groups} == {"星辰组", "追光组", "启航组"}
 
 
+def test_batch_create_groups_by_count_continues_numbering(client, admin_headers, school):
+    r = client.post(
+        "/api/groups",
+        headers=admin_headers,
+        json={"name": "第一组", "class_name": "初一1班", "member_student_nos": []},
+    )
+    assert r.status_code == 200, r.text
+
+    r = client.post(
+        "/api/groups/batch",
+        headers=admin_headers,
+        json={"class_name": "初一1班", "count": 2},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["items"] == ["第二组", "第三组"]
+
+    r = client.post(
+        "/api/groups/batch",
+        headers=admin_headers,
+        json={"class_name": "初一1班", "count": 2},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["items"] == ["第四组", "第五组"]
+
+    # 已有阿拉伯数字组名时，沿用阿拉伯数字风格
+    r = client.post(
+        "/api/groups",
+        headers=admin_headers,
+        json={"name": "第10组", "class_name": "初一1班", "member_student_nos": []},
+    )
+    assert r.status_code == 200, r.text
+    r = client.post(
+        "/api/groups/batch",
+        headers=admin_headers,
+        json={"class_name": "初一1班", "count": 1},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["items"] == ["第11组"]
+
+
 def test_randomize_groups_clears_and_balances_members(client, admin_headers, school):
     r = client.post(
         "/api/groups",
