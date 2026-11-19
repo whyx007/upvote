@@ -129,6 +129,8 @@ async function removeStudent(s) {
 const showGroupDialog = ref(false)
 const editingGroup = ref(null)
 const groupName = ref('')
+const showBatchGroupDialog = ref(false)
+const batchGroupText = ref('')
 const pickerShow = ref(false)
 const pickerGroup = ref(null)
 const pickerSelected = ref([])
@@ -172,6 +174,61 @@ async function saveGroup() {
     }
   } catch {
     /* 拦截器已提示 */
+  }
+}
+
+function openBatchGroupCreate() {
+  batchGroupText.value = ''
+  showBatchGroupDialog.value = true
+}
+
+function fillDefaultGroupNames() {
+  batchGroupText.value = Array.from({ length: 6 }, (_, i) => `第${i + 1}组`).join('\n')
+}
+
+async function saveBatchGroups() {
+  const names = [
+    ...new Set(
+      batchGroupText.value
+        .split(/\r?\n/)
+        .map((name) => name.trim())
+        .filter(Boolean)
+    )
+  ]
+  if (!names.length) {
+    showToast('请输入至少一个小组名称')
+    return
+  }
+  try {
+    const { data } = await api.post('/groups/batch', { class_name: className.value, names })
+    const skipped = data.skipped?.length ? `，跳过 ${data.skipped.length} 个已存在` : ''
+    showToast(`新增 ${data.created} 个小组${skipped}`)
+    showBatchGroupDialog.value = false
+    loadClassData()
+  } catch {
+    /* 拦截器已提示 */
+  }
+}
+
+async function randomizeGroups() {
+  if (!groups.value.length) {
+    showToast('请先创建小组')
+    return
+  }
+  if (!roster.value.length) {
+    showToast('该班级还没有学生')
+    return
+  }
+  try {
+    await showConfirmDialog({
+      title: '随机分组',
+      message: `将清空本班现有小组归属，把 ${roster.value.length} 名学生随机分配到 ${groups.value.length} 个小组，确定？`
+    })
+    const { data } = await api.post('/groups/randomize', { class_name: className.value })
+    showToast(`已随机分配 ${data.students} 名学生到 ${data.groups} 个小组`)
+    loadClassData()
+  } catch {
+    /* 取消或拦截器提示 */
   }
 }
 
@@ -378,6 +435,8 @@ onMounted(async () => {
         <van-tab :title="`小组 ${groups.length}`" name="groups">
           <div class="toolbar">
             <van-button v-if="!readOnly" size="small" type="warning" icon="plus" @click="openGroupCreate">新增小组</van-button>
+            <van-button v-if="!readOnly" size="small" plain type="warning" icon="apps-o" @click="openBatchGroupCreate">批量新增</van-button>
+            <van-button v-if="!readOnly" size="small" plain type="primary" icon="exchange" @click="randomizeGroups">随机分组</van-button>
             <span v-if="readOnly" class="muted">仅可查看：班主任/副班主任可以管理小组</span>
             <span v-else class="muted">点成员后的 × 移除（可撤销）；「＋ 添加成员」从本班未入组学生中选择</span>
           </div>
@@ -482,6 +541,22 @@ onMounted(async () => {
     <van-dialog teleport="body" v-model:show="showGroupDialog" :title="editingGroup ? '小组改名' : `新增小组 · ${className}`" show-cancel-button class="form-dialog" @confirm="saveGroup">
       <van-field v-model="groupName" label="小组名称" placeholder="如：星辰组" />
       <div v-if="!editingGroup" class="muted" style="padding: 8px 16px">创建后将自动打开成员勾选器</div>
+    </van-dialog>
+
+    <!-- 批量新增小组 -->
+    <van-dialog teleport="body" v-model:show="showBatchGroupDialog" :title="`批量新增小组 · ${className}`" show-cancel-button class="form-dialog" @confirm="saveBatchGroups">
+      <van-field
+        v-model="batchGroupText"
+        label="小组名称"
+        type="textarea"
+        rows="5"
+        autosize
+        placeholder="每行一个名称，例如：星辰组 / 追光组"
+      />
+      <div class="muted" style="padding: 0 16px 8px">每行一个名称；已存在的名称会自动跳过。</div>
+      <div style="padding: 0 16px 10px">
+        <van-button size="small" plain type="warning" @click="fillDefaultGroupNames">填入 6 个默认组名</van-button>
+      </div>
     </van-dialog>
 
     <!-- 添加成员（仅未入组学生） -->

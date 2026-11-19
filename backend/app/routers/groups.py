@@ -1,6 +1,8 @@
+import random
+
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
-from sqlalchemy import func, select
+from pydantic import BaseModel, Field
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from ..models import Group, GroupMember, Student
@@ -22,6 +24,15 @@ class GroupPatch(BaseModel):
     name: str | None = None
     class_name: str | None = None
     member_student_nos: list[str] | None = None
+
+
+class GroupBatchIn(BaseModel):
+    class_name: str
+    names: list[str] = Field(min_length=1, max_length=100)
+
+
+class GroupRandomizeIn(BaseModel):
+    class_name: str
 
 
 def _resolve_members(db: Session, student_nos: list[str], class_name: str) -> list[Student]:
@@ -91,6 +102,73 @@ def create_group(body: GroupIn, teacher=Depends(get_current_teacher), db: Sessio
         db.add(GroupMember(group_id=group.id, student_id=student.id))
     db.commit()
     return _serialize(db, group)
+
+
+@router.post("/batch")
+def create_groups_batch(body: GroupBatchIn, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    """批量新增小组；已存在的名称跳过，不影响其余名称创建。"""
+    assert_class_group_manager(db, teacher, body.class_name)
+    names: list[str] = []
+    for raw in body.names:
+        name = (raw or "").strip()
+        if not name or name in names:
+            continue
+        if len(name) > 64:
+            raise HTTPException(status_code=400, detail=f"小组名称过长：{name[:20]}…")
+        names.append(name)
+    if not names:
+        raise HTTPException(status_code=400, detail="请至少提供一个小组名称")
+
+    ensure_school_class(db, body.class_name)
+    existing = set(
+        db.scalars(select(Group.name).where(Group.class_name == body.class_name)).all()
+    )
+    created: list[str] = []
+    skipped: list[str] = []
+    for name in names:
+        if name in existing:
+            skipped.append(name)
+            continue
+        db.add(Group(name=name, class_name=body.class_name))
+        existing.add(name)
+        created.append(name)
+    db.commit()
+    return {"created": len(created), "skipped": skipped, "items": created}
+
+
+@router.post("/randomize")
+def randomize_groups(body: GroupRandomizeIn, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+    """清空本班现有小组归属，把全部在读学生尽量均匀地随机分配到各小组。"""
+    assert_class_group_manager(db, teacher, body.class_name)
+    groups = db.scalars(
+        select(Group).where(Group.class_name == body.class_name).order_by(Group.id)
+    ).all()
+    if not groups:
+        raise HTTPException(status_code=400, detail="请先创建小组，再随机分组")
+    students = db.scalars(
+        select(Student)
+        .where(Student.class_name == body.class_name, Student.is_active.is_(True))
+        .order_by(Student.student_no)
+    ).all()
+    if not students:
+        raise HTTPException(status_code=400, detail="该班级还没有学生")
+
+    group_ids = [g.id for g in groups]
+    db.execute(delete(GroupMember).where(GroupMember.group_id.in_(group_ids)))
+    shuffled = list(students)
+    random.shuffle(shuffled)
+
+    base, extra = divmod(len(shuffled), len(groups))
+    cursor = 0
+    items = []
+    for index, group in enumerate(groups):
+        size = base + (1 if index < extra else 0)
+        for student in shuffled[cursor : cursor + size]:
+            db.add(GroupMember(group_id=group.id, student_id=student.id))
+        cursor += size
+        items.append({"id": group.id, "name": group.name, "member_count": size})
+    db.commit()
+    return {"groups": len(groups), "students": len(shuffled), "items": items}
 
 
 @router.patch("/{group_id}")
