@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 from ..models import Group, GroupMember, SchoolClass, Semester, Student, Teacher, TeacherClass
 from ..security import get_current_teacher, get_db, require_admin
 from ..services.access import all_class_names, assert_class_access, is_admin, is_subject_lead
-from ..services.class_roles import assert_class_manager, normalize_duty, set_class_teacher
+from ..services.class_roles import (
+    CLASS_MANAGER_DUTIES,
+    assert_class_manager,
+    get_assignment,
+    normalize_duty,
+    set_class_teacher,
+)
 from ..services.class_service import (
     class_has_students,
     class_summaries,
@@ -17,12 +23,27 @@ from ..services.class_service import (
     sync_classes_from_students,
 )
 from ..services.grades import grade_of_class, normalize_grade
-from ..services.points import balances_for_students
+from ..services.points import balances_for_students, like_counts_for_students, like_counts_for_teacher
 from .auth import serialize_teacher
 from .semesters import current_semester
 from .students import serialize_student
 
 router = APIRouter(prefix="/api/classes", tags=["classes"])
+
+
+def _viewer_scope(db: Session, teacher: Teacher, class_name: str) -> str:
+    """决定班级名单返回哪一级数据。
+
+    - self：普通任课教师/学科组长，只看本人点赞；
+    - class_manager：本班班主任/副班主任，额外看班级和学生总点赞；
+    - admin：校长/主任，额外看学生官方星灿币余额。
+    """
+    if is_admin(teacher):
+        return "admin"
+    assignment = get_assignment(db, teacher.id, class_name)
+    if assignment is not None and assignment.duty in CLASS_MANAGER_DUTIES:
+        return "class_manager"
+    return "self"
 
 
 class AssignTeacherIn(BaseModel):
@@ -205,6 +226,7 @@ def class_roster(
     db: Session = Depends(get_db),
 ):
     assert_class_access(db, teacher, class_name)
+    scope = _viewer_scope(db, teacher, class_name)
     semester = db.get(Semester, semester_id) if semester_id else current_semester(db)
     students = db.scalars(
         select(Student)
@@ -212,8 +234,17 @@ def class_roster(
         .order_by(Student.student_no)
     ).all()
     ids = [s.id for s in students]
-    balances = balances_for_students(
-        db, ids, semester.id if semester else None, request.app.state.settings.coins_per_like
+    semester_key = semester.id if semester else None
+    my_counts = like_counts_for_teacher(db, teacher.id, ids, semester_key)
+    totals = (
+        like_counts_for_students(db, ids, semester_key)
+        if scope in ("class_manager", "admin")
+        else {}
+    )
+    balances = (
+        balances_for_students(db, ids, semester_key, request.app.state.settings.coins_per_like)
+        if scope == "admin"
+        else {}
     )
     memberships = db.execute(
         select(GroupMember.student_id, Group.name)
@@ -223,8 +254,21 @@ def class_roster(
     groups_by_student: dict[int, list[str]] = {}
     for student_id, group_name in memberships:
         groups_by_student.setdefault(student_id, []).append(group_name)
-    items = [
-        {**serialize_student(s), **balances[s.id], "groups": groups_by_student.get(s.id, [])}
-        for s in students
-    ]
-    return {"class_name": class_name, "semester_id": semester.id if semester else None, "items": items}
+    items = []
+    for s in students:
+        item = {**serialize_student(s), **my_counts[s.id], "groups": groups_by_student.get(s.id, [])}
+        if scope in ("class_manager", "admin"):
+            item.update(totals[s.id])
+        if scope == "admin":
+            item.update(balances[s.id])
+        items.append(item)
+    payload = {
+        "class_name": class_name,
+        "semester_id": semester_key,
+        "viewer_scope": scope,
+        "items": items,
+    }
+    if scope in ("class_manager", "admin"):
+        payload["class_semester_likes"] = sum(x["student_semester_likes"] for x in totals.values())
+        payload["class_total_likes"] = sum(x["student_total_likes"] for x in totals.values())
+    return payload

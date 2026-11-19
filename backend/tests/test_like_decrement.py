@@ -29,7 +29,8 @@ def test_decrement_reduces_balance(client, admin_headers, school):
     assert balance(client, admin_headers) == 2
     r = decrement(client, school["teacher_headers"], sid)
     assert r.status_code == 200, r.text
-    assert r.json()["semester_balance"] == 1
+    assert r.json()["my_semester_likes"] == 1
+    assert "semester_balance" not in r.json()
     assert balance(client, admin_headers) == 1
 
 

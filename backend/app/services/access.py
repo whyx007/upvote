@@ -99,7 +99,12 @@ def stats_teachers(db: Session, teacher: Teacher) -> list[Teacher]:
         if not subject:
             raise HTTPException(status_code=403, detail="学科组长尚未设置学科，请联系管理员")
         teachers = db.scalars(select(Teacher).where(Teacher.is_active.is_(True)).order_by(Teacher.employee_no)).all()
-        return [t for t in teachers if normalize_subject(t.subject) == subject]
+        # 学科组长只看本科目普通教师/同学科组长，不看校长/主任账号
+        return [
+            t
+            for t in teachers
+            if normalize_subject(t.subject) == subject and t.role != ROLE_ADMIN
+        ]
     return [teacher]
 
 
@@ -107,7 +112,7 @@ def assert_stats_teacher(teacher: Teacher, target: Teacher) -> None:
     if is_admin(teacher):
         return
     if is_subject_lead(teacher):
-        if normalize_subject(target.subject) != normalize_subject(teacher.subject):
+        if target.role == ROLE_ADMIN or normalize_subject(target.subject) != normalize_subject(teacher.subject):
             raise HTTPException(status_code=403, detail="只能查看本科目教师的统计")
         return
     if target.id != teacher.id:

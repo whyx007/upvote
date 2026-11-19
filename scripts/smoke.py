@@ -85,21 +85,21 @@ def main():
 
     roster = c.get("/api/classes/初一1班/roster", headers=teacher).json()["items"]
     ids = {s["student_no"]: s["id"] for s in roster}
-    ok("花名册初始余额", all(s["semester_balance"] == 0 for s in roster))
+    ok("花名册初始点赞", all(s["my_semester_likes"] == 0 for s in roster))
 
     r = c.post("/api/likes", headers=teacher, json={"target_type": "student", "target_id": ids["2026001"]})
-    ok("个人点赞", r.status_code == 200 and r.json()["likes"][0]["semester_balance"] == 1, r.text)
+    ok("个人点赞", r.status_code == 200 and r.json()["likes"][0]["my_semester_likes"] == 1, r.text)
     r = c.post("/api/likes", headers=teacher, json={"target_type": "group", "target_id": c.get("/api/groups", headers=teacher).json()["items"][0]["id"]})
     ok("小组点赞全员+1", r.status_code == 200 and r.json()["count"] == 2, r.text)
     group_batch = r.json()["batch_id"]
 
     roster = {s["student_no"]: s for s in c.get("/api/classes/初一1班/roster", headers=teacher).json()["items"]}
-    ok("余额累计", roster["2026001"]["semester_balance"] == 2 and roster["2026002"]["semester_balance"] == 1)
+    ok("我的点赞累计", roster["2026001"]["my_semester_likes"] == 2 and roster["2026002"]["my_semester_likes"] == 1)
 
     r = c.post("/api/likes/revoke", headers=teacher, json={"batch_id": group_batch})
     ok("撤销小组点赞", r.status_code == 200 and r.json()["revoked_count"] == 2, r.text)
     roster = {s["student_no"]: s for s in c.get("/api/classes/初一1班/roster", headers=teacher).json()["items"]}
-    ok("撤销后余额", roster["2026001"]["semester_balance"] == 1 and roster["2026002"]["semester_balance"] == 0)
+    ok("撤销后我的点赞", roster["2026001"]["my_semester_likes"] == 1 and roster["2026002"]["my_semester_likes"] == 0)
 
     r = c.post("/api/rewards", headers=admin, json={"name": "笔记本", "cost_coins": 1, "stock": 5})
     ok("创建奖励", r.status_code == 200, r.text)

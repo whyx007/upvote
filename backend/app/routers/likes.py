@@ -3,7 +3,7 @@ from datetime import date, datetime
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from ..models import Group, GroupMember, Like, Student, Teacher
 from ..security import get_current_teacher, get_db
 from ..services.access import assert_like_access
-from ..services.points import balances_for_students
+from ..services.points import like_counts_for_teacher
 from .semesters import current_semester
 
 router = APIRouter(prefix="/api/likes", tags=["likes"])
@@ -31,7 +31,7 @@ class DecrementIn(BaseModel):
 
 
 @router.post("")
-def create_like(body: LikeIn, request: Request, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+def create_like(body: LikeIn, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     semester = current_semester(db)
     if semester is None:
         raise HTTPException(status_code=400, detail="当前没有激活的学期，请先在管理端创建并激活学期")
@@ -66,21 +66,19 @@ def create_like(body: LikeIn, request: Request, teacher=Depends(get_current_teac
             )
         )
     db.commit()
-    balances = balances_for_students(
-        db, [s.id for s in targets], semester.id, request.app.state.settings.coins_per_like
-    )
+    my_counts = like_counts_for_teacher(db, teacher.id, [s.id for s in targets], semester.id)
     return {
         "batch_id": batch_id,
         "count": len(targets),
         "likes": [
-            {"student_id": s.id, "student_name": s.name, "semester_balance": balances[s.id]["semester_balance"]}
+            {"student_id": s.id, "student_name": s.name, **my_counts[s.id]}
             for s in targets
         ],
     }
 
 
 @router.post("/decrement")
-def decrement_like(body: DecrementIn, request: Request, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
+def decrement_like(body: DecrementIn, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     """课堂纠错：减少当前学期本人最近一次给该学生的点赞（-1）。"""
     student = db.get(Student, body.student_id)
     if student is None or not student.is_active:
@@ -106,10 +104,8 @@ def decrement_like(body: DecrementIn, request: Request, teacher=Depends(get_curr
         raise HTTPException(status_code=400, detail="只能减少当日点赞，更早的请在管理端处理")
     like.revoked_at = datetime.now()
     db.commit()
-    balances = balances_for_students(
-        db, [student.id], semester.id, request.app.state.settings.coins_per_like
-    )[student.id]
-    return {"student_id": student.id, **balances, "count": 1}
+    my_counts = like_counts_for_teacher(db, teacher.id, [student.id], semester.id)[student.id]
+    return {"student_id": student.id, **my_counts, "count": 1}
 
 
 @router.post("/revoke")

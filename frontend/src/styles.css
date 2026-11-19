@@ -516,6 +516,16 @@ html, body, #app {
   color: #b6a88f;
   font-size: 9px;
 }
+.student-sub {
+  max-width: 100%;
+  margin: -5px 0 9px;
+  overflow: hidden;
+  color: #b6a88f;
+  font-size: 9px;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .like-controls {
   display: grid;
   grid-template-columns: 32px minmax(0, 1fr);
@@ -683,6 +693,7 @@ html, body, #app {
   .student-balance { margin: 7px 0 8px; }
   .student-balance strong { font-size: 18px; }
   .student-balance small { display: none; }
+  .student-sub { margin: -4px 0 7px; font-size: 8px; }
   .like-controls { grid-template-columns: 27px minmax(0, 1fr); gap: 4px; }
   .decrement-btn { width: 27px; height: 29px; border-radius: 9px; }
   .like-btn.van-button { height: 29px; padding: 0 3px; font-size: 12px; }
