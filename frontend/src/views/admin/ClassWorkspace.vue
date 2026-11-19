@@ -212,13 +212,24 @@ async function randomizeGroups() {
     showToast('该班级还没有学生')
     return
   }
+  const groupedIds = new Set(groups.value.flatMap((g) => (g.members || []).map((m) => m.id)))
+  const ungroupedCount = roster.value.filter((s) => !groupedIds.has(s.id)).length
+  const emptyCount = groups.value.filter((g) => !(g.members || []).length).length
+  if (!emptyCount) {
+    showToast('没有空小组可补')
+    return
+  }
+  if (!ungroupedCount) {
+    showToast('没有未分组学生')
+    return
+  }
   try {
     await showConfirmDialog({
-      title: '随机分组',
-      message: `将清空本班现有小组归属，把 ${roster.value.length} 名学生随机分配到 ${groups.value.length} 个小组，确定？`
+      title: '随机补组',
+      message: `将把 ${ungroupedCount} 名未分组学生随机补进 ${emptyCount} 个空小组，已有成员不动，确定？`
     })
     const { data } = await api.post('/groups/randomize', { class_name: className.value })
-    showToast(`已随机分配 ${data.students} 名学生到 ${data.groups} 个小组`)
+    showToast(`已将 ${data.students} 名学生随机补进 ${data.groups} 个空小组`)
     loadClassData()
   } catch {
     /* 取消或拦截器提示 */
@@ -442,7 +453,7 @@ onMounted(async () => {
           <div class="toolbar">
             <van-button v-if="!readOnly" size="small" type="warning" icon="plus" @click="openGroupCreate">新增小组</van-button>
             <van-button v-if="!readOnly" size="small" plain type="warning" icon="apps-o" @click="openBatchGroupCreate">批量新增</van-button>
-            <van-button v-if="!readOnly" size="small" plain type="primary" icon="exchange" @click="randomizeGroups">随机分组</van-button>
+            <van-button v-if="!readOnly" size="small" plain type="primary" icon="exchange" @click="randomizeGroups">随机补组</van-button>
             <span v-if="readOnly" class="muted">仅可查看：班主任/副班主任可以管理小组</span>
             <span v-else class="muted">点成员后的 × 移除（可撤销）；「＋ 添加成员」从本班未入组学生中选择</span>
           </div>

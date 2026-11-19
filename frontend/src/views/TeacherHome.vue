@@ -24,7 +24,6 @@ const search = ref('')
 const myUsage = ref(null)
 const classScope = ref('self')
 const classSemesterLikes = ref(0)
-const classTotalLikes = ref(0)
 
 // 顶部身份：管理员 > 当前班级角色 > 学科组长 > 普通教师
 const roleKey = computed(() => {
@@ -38,13 +37,9 @@ const isClassManager = computed(() => classScope.value === 'class_manager')
 const mySemesterLikes = computed(() =>
   roster.value.reduce((sum, s) => sum + (s.my_semester_likes || 0), 0)
 )
-const myTotalLikes = computed(() =>
-  roster.value.reduce((sum, s) => sum + (s.my_total_likes || 0), 0)
-)
 const ranked = computed(() =>
   [...roster.value].sort(
     (a, b) =>
-      (b.my_total_likes || 0) - (a.my_total_likes || 0) ||
       (b.my_semester_likes || 0) - (a.my_semester_likes || 0) ||
       a.student_no.localeCompare(b.student_no)
   )
@@ -52,8 +47,8 @@ const ranked = computed(() =>
 const rankedByTotal = computed(() =>
   [...roster.value].sort(
     (a, b) =>
-      (b.student_total_likes || 0) - (a.student_total_likes || 0) ||
-      (b.my_total_likes || 0) - (a.my_total_likes || 0) ||
+      (b.student_semester_likes || 0) - (a.student_semester_likes || 0) ||
+      (b.my_semester_likes || 0) - (a.my_semester_likes || 0) ||
       a.student_no.localeCompare(b.student_no)
   )
 )
@@ -94,7 +89,6 @@ async function loadAll() {
     recent.value = []
     classScope.value = 'self'
     classSemesterLikes.value = 0
-    classTotalLikes.value = 0
     return
   }
   loading.value = true
@@ -107,19 +101,16 @@ async function loadAll() {
     groups.value = g.data.items
     classScope.value = r.data.viewer_scope || 'self'
     classSemesterLikes.value = r.data.class_semester_likes || 0
-    classTotalLikes.value = r.data.class_total_likes || 0
     await loadRecent()
   } finally {
     loading.value = false
   }
 }
 
-function bumpStudentTotals(s, delta) {
+function bumpClassSemesterLikes(s, delta) {
   if (!isClassManager.value) return
   s.student_semester_likes = Math.max(0, (s.student_semester_likes || 0) + delta)
-  s.student_total_likes = Math.max(0, (s.student_total_likes || 0) + delta)
   classSemesterLikes.value = Math.max(0, classSemesterLikes.value + delta)
-  classTotalLikes.value = Math.max(0, classTotalLikes.value + delta)
 }
 
 async function likeStudent(s) {
@@ -129,8 +120,7 @@ async function likeStudent(s) {
     const { data } = await api.post('/likes', { target_type: 'student', target_id: s.id })
     const like = data.likes[0]
     s.my_semester_likes = like.my_semester_likes
-    s.my_total_likes = like.my_total_likes
-    bumpStudentTotals(s, 1)
+    bumpClassSemesterLikes(s, 1)
     showToast(`👍 ${s.name} +1`)
     loadRecent()
     loadMyUsage()
@@ -147,8 +137,7 @@ async function decrementStudent(s) {
   try {
     const { data } = await api.post('/likes/decrement', { student_id: s.id })
     s.my_semester_likes = data.my_semester_likes
-    s.my_total_likes = data.my_total_likes
-    bumpStudentTotals(s, -1)
+    bumpClassSemesterLikes(s, -1)
     showToast(`${s.name} −1，已回退本人最近一次点赞`)
     loadRecent()
     loadMyUsage()
@@ -168,8 +157,7 @@ async function likeGroup(g) {
       const s = roster.value.find((x) => x.id === l.student_id)
       if (s) {
         s.my_semester_likes = l.my_semester_likes
-        s.my_total_likes = l.my_total_likes
-        bumpStudentTotals(s, 1)
+        bumpClassSemesterLikes(s, 1)
       }
     }
     showToast(`👍 ${g.name} 全员 +1`)
@@ -238,16 +226,16 @@ onMounted(async () => {
         </div>
         <div class="hero-meta">{{ semester ? semester.name : '尚未激活学期' }}</div>
         <div v-if="myWeek" class="hero-week">本周 · 👍 {{ myWeek.like_count }} 次 · 使用 {{ myWeek.active_days }} 天</div>
-        <div v-if="isClassManager" class="hero-week">全班累计 👍 {{ classTotalLikes }} 次 · 本学期 {{ classSemesterLikes }} 次</div>
-        <div v-else class="hero-week">我累计 👍 {{ myTotalLikes }} 次 · 本学期 {{ mySemesterLikes }} 次</div>
+        <div v-if="isClassManager" class="hero-week">本学期全班 👍 {{ classSemesterLikes }} 次</div>
+        <div v-else class="hero-week">本学期我赞 👍 {{ mySemesterLikes }} 次</div>
         <div class="hero-stats">
           <div><strong>{{ roster.length }}</strong><span>班级学生</span></div>
           <i></i>
           <div><strong>{{ groups.length }}</strong><span>学习小组</span></div>
           <i></i>
           <div>
-            <strong>{{ isClassManager ? classTotalLikes : myTotalLikes }}</strong>
-            <span>{{ isClassManager ? '全班累计点赞' : '我累计点赞' }}</span>
+            <strong>{{ isClassManager ? classSemesterLikes : mySemesterLikes }}</strong>
+            <span>{{ isClassManager ? '本学期全班点赞' : '本学期我的点赞' }}</span>
           </div>
         </div>
       </div>
@@ -288,22 +276,18 @@ onMounted(async () => {
                   <div class="student-no">{{ s.student_no }}</div>
                   <div v-if="isClassManager" class="student-split">
                     <div class="student-stat">
-                      <strong>{{ s.student_total_likes }}</strong>
+                      <strong>{{ s.student_semester_likes }}</strong>
                       <span>共计</span>
                     </div>
                     <div class="student-stat mine">
-                      <strong>{{ s.my_total_likes }}</strong>
+                      <strong>{{ s.my_semester_likes }}</strong>
                       <span>我赞</span>
                     </div>
                   </div>
                   <div v-else class="student-balance">
                     <span>👍</span>
-                    <strong>{{ s.my_total_likes }}</strong>
-                    <small>我累计</small>
-                  </div>
-                  <div class="student-sub">
-                    <template v-if="isClassManager">本学期 共计 {{ s.student_semester_likes }} · 我赞 {{ s.my_semester_likes }}</template>
-                    <template v-else>本学期 {{ s.my_semester_likes }} 次</template>
+                    <strong>{{ s.my_semester_likes }}</strong>
+                    <small>本学期</small>
                   </div>
                   <div class="like-controls">
                     <button
@@ -345,7 +329,7 @@ onMounted(async () => {
         <section class="like-section rank-section">
           <div class="section-heading">
             <div><span class="section-eyebrow">MY SHINING STARS</span><h3>我的点赞榜</h3></div>
-            <span class="section-tip">按我累计点赞数排序</span>
+            <span class="section-tip">按我本学期点赞数排序</span>
           </div>
           <div class="rank-list">
             <div v-for="(s, i) in ranked" :key="s.id" class="rank-row" :class="{ 'rank-top': i < 3 }">
@@ -353,8 +337,8 @@ onMounted(async () => {
               <div class="student-avatar small" :class="s.gender === '女' ? 'girl' : 'boy'">{{ avatarText(s.name) }}</div>
               <div class="rank-person"><strong>{{ s.name }}</strong><span>{{ s.student_no }}</span></div>
               <div class="rank-coins">
-                <strong>👍 {{ s.my_total_likes }}</strong>
-                <span v-if="isClassManager">共计 {{ s.student_total_likes }}</span>
+                <strong>👍 {{ s.my_semester_likes }}</strong>
+                <span v-if="isClassManager">共计 {{ s.student_semester_likes }}</span>
               </div>
             </div>
           </div>
@@ -366,7 +350,7 @@ onMounted(async () => {
         <section class="like-section rank-section">
           <div class="section-heading">
             <div><span class="section-eyebrow">ALL SHINING STARS</span><h3>共计点赞榜</h3></div>
-            <span class="section-tip">按全班累计点赞数排序</span>
+            <span class="section-tip">按全班本学期点赞数排序</span>
           </div>
           <div class="rank-list">
             <div v-for="(s, i) in rankedByTotal" :key="s.id" class="rank-row" :class="{ 'rank-top': i < 3 }">
@@ -374,8 +358,8 @@ onMounted(async () => {
               <div class="student-avatar small" :class="s.gender === '女' ? 'girl' : 'boy'">{{ avatarText(s.name) }}</div>
               <div class="rank-person"><strong>{{ s.name }}</strong><span>{{ s.student_no }}</span></div>
               <div class="rank-coins">
-                <strong>👍 {{ s.student_total_likes }}</strong>
-                <span>我赞 {{ s.my_total_likes }}</span>
+                <strong>👍 {{ s.student_semester_likes }}</strong>
+                <span>我赞 {{ s.my_semester_likes }}</span>
               </div>
             </div>
           </div>

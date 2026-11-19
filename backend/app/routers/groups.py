@@ -2,7 +2,7 @@ import random
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..models import Group, GroupMember, Student
@@ -154,7 +154,7 @@ def create_groups_batch(body: GroupBatchIn, teacher=Depends(get_current_teacher)
 
 @router.post("/randomize")
 def randomize_groups(body: GroupRandomizeIn, teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
-    """清空本班现有小组归属，把全部在读学生尽量均匀地随机分配到各小组。"""
+    """只把尚未分组的学生随机补进空小组；已有成员不动。"""
     assert_class_group_manager(db, teacher, body.class_name)
     groups = db.scalars(
         select(Group).where(Group.class_name == body.class_name).order_by(Group.id)
@@ -170,21 +170,33 @@ def randomize_groups(body: GroupRandomizeIn, teacher=Depends(get_current_teacher
         raise HTTPException(status_code=400, detail="该班级还没有学生")
 
     group_ids = [g.id for g in groups]
-    db.execute(delete(GroupMember).where(GroupMember.group_id.in_(group_ids)))
-    shuffled = list(students)
-    random.shuffle(shuffled)
+    memberships = db.execute(
+        select(GroupMember.group_id, GroupMember.student_id).where(
+            GroupMember.group_id.in_(group_ids)
+        )
+    ).all()
+    occupied_group_ids = {group_id for group_id, _ in memberships}
+    grouped_student_ids = {student_id for _, student_id in memberships}
+    empty_groups = [group for group in groups if group.id not in occupied_group_ids]
+    if not empty_groups:
+        raise HTTPException(status_code=400, detail="没有空小组可补")
+    ungrouped = [student for student in students if student.id not in grouped_student_ids]
+    if not ungrouped:
+        raise HTTPException(status_code=400, detail="没有未分组学生")
 
-    base, extra = divmod(len(shuffled), len(groups))
+    shuffled = list(ungrouped)
+    random.shuffle(shuffled)
+    base, extra = divmod(len(shuffled), len(empty_groups))
     cursor = 0
     items = []
-    for index, group in enumerate(groups):
+    for index, group in enumerate(empty_groups):
         size = base + (1 if index < extra else 0)
         for student in shuffled[cursor : cursor + size]:
             db.add(GroupMember(group_id=group.id, student_id=student.id))
         cursor += size
         items.append({"id": group.id, "name": group.name, "member_count": size})
     db.commit()
-    return {"groups": len(groups), "students": len(shuffled), "items": items}
+    return {"groups": len(empty_groups), "students": len(shuffled), "items": items}
 
 
 @router.patch("/{group_id}")

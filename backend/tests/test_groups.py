@@ -115,7 +115,13 @@ def test_group_list_sorted_by_number(client, admin_headers, school):
     ]
 
 
-def test_randomize_groups_clears_and_balances_members(client, admin_headers, school):
+def test_randomize_fills_empty_groups_without_touching_existing(client, admin_headers, school):
+    r = client.post(
+        "/api/students",
+        headers=admin_headers,
+        json={"student_no": "2026003", "name": "未分组学生", "class_name": "初一1班"},
+    )
+    assert r.status_code == 200, r.text
     r = client.post(
         "/api/groups",
         headers=admin_headers,
@@ -126,18 +132,44 @@ def test_randomize_groups_clears_and_balances_members(client, admin_headers, sch
     r = client.post("/api/groups/randomize", headers=admin_headers, json={"class_name": "初一1班"})
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["groups"] == 2
-    assert body["students"] == 2
-    assert sorted(x["member_count"] for x in body["items"]) == [1, 1]
+    assert body["groups"] == 1
+    assert body["students"] == 1
+    assert body["items"][0]["member_count"] == 1
 
     groups = client.get(
         "/api/groups", headers=admin_headers, params={"class_name": "初一1班", "include_members": 1}
     ).json()["items"]
-    memberships = {m["student_no"]: 0 for g in groups for m in g["members"]}
-    for group in groups:
-        for member in group["members"]:
-            memberships[member["student_no"]] += 1
-    assert memberships == {"2026001": 1, "2026002": 1}
+    by_name = {group["name"]: {m["student_no"] for m in group["members"]} for group in groups}
+    assert by_name["星辰组"] == {"2026001", "2026002"}
+    assert by_name["追光组"] == {"2026003"}
+
+    # 再次随机补组：没有未分组学生，也没有空小组
+    r = client.post("/api/groups/randomize", headers=admin_headers, json={"class_name": "初一1班"})
+    assert r.status_code == 400
+
+
+def test_randomize_requires_empty_groups(client, admin_headers, school):
+    r = client.post(
+        "/api/students",
+        headers=admin_headers,
+        json={"student_no": "2026004", "name": "已分组学生", "class_name": "初一1班"},
+    )
+    assert r.status_code == 200, r.text
+    student = next(
+        s
+        for s in client.get("/api/classes/初一1班/roster", headers=admin_headers).json()["items"]
+        if s["student_no"] == "2026004"
+    )
+    r = client.post(
+        "/api/groups",
+        headers=admin_headers,
+        json={"name": "追光组", "class_name": "初一1班", "member_student_nos": [student["student_no"]]},
+    )
+    assert r.status_code == 200, r.text
+
+    r = client.post("/api/groups/randomize", headers=admin_headers, json={"class_name": "初一1班"})
+    assert r.status_code == 400
+    assert "空小组" in r.json()["detail"]
 
 
 def test_batch_and_randomize_require_group_manager(client, admin_headers, school):
