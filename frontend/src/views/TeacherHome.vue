@@ -49,6 +49,14 @@ const ranked = computed(() =>
       a.student_no.localeCompare(b.student_no)
   )
 )
+const rankedByTotal = computed(() =>
+  [...roster.value].sort(
+    (a, b) =>
+      (b.student_total_likes || 0) - (a.student_total_likes || 0) ||
+      (b.my_total_likes || 0) - (a.my_total_likes || 0) ||
+      a.student_no.localeCompare(b.student_no)
+  )
+)
 const visibleRoster = computed(() => {
   const q = search.value.trim()
   return q ? roster.value.filter((s) => s.name.includes(q) || s.student_no.includes(q)) : roster.value
@@ -346,12 +354,32 @@ onMounted(async () => {
               <div class="rank-person"><strong>{{ s.name }}</strong><span>{{ s.student_no }}</span></div>
               <div class="rank-coins">
                 <strong>👍 {{ s.my_total_likes }}</strong>
-                <span v-if="isClassManager">全班累计 {{ s.student_total_likes }} · 本学期 {{ s.student_semester_likes }}</span>
-                <span v-else>本学期 {{ s.my_semester_likes }} 次</span>
+                <span v-if="isClassManager">共计 {{ s.student_total_likes }}</span>
               </div>
             </div>
           </div>
           <van-empty v-if="!ranked.length" description="暂无排行数据" />
+        </section>
+      </van-tab>
+
+      <van-tab v-if="isClassManager" title="共计点赞榜" name="total-rank">
+        <section class="like-section rank-section">
+          <div class="section-heading">
+            <div><span class="section-eyebrow">ALL SHINING STARS</span><h3>共计点赞榜</h3></div>
+            <span class="section-tip">按全班累计点赞数排序</span>
+          </div>
+          <div class="rank-list">
+            <div v-for="(s, i) in rankedByTotal" :key="s.id" class="rank-row" :class="{ 'rank-top': i < 3 }">
+              <div class="rank-number">{{ i + 1 }}</div>
+              <div class="student-avatar small" :class="s.gender === '女' ? 'girl' : 'boy'">{{ avatarText(s.name) }}</div>
+              <div class="rank-person"><strong>{{ s.name }}</strong><span>{{ s.student_no }}</span></div>
+              <div class="rank-coins">
+                <strong>👍 {{ s.student_total_likes }}</strong>
+                <span>我赞 {{ s.my_total_likes }}</span>
+              </div>
+            </div>
+          </div>
+          <van-empty v-if="!rankedByTotal.length" description="暂无排行数据" />
         </section>
       </van-tab>
 
