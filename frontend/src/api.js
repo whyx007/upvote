@@ -43,8 +43,8 @@ api.interceptors.response.use(
   }
 )
 
-export async function downloadBlob(url, filename, params) {
-  const r = await api.get(url, { responseType: 'blob', params })
+export async function downloadBlob(url, filename, params, options = {}) {
+  const r = await api.get(url, { responseType: 'blob', params, ...options })
 
   // 安卓 APK：WebView 内 <a download> 不会触发下载，交给原生桥写入「下载」目录
   const bridge = typeof window !== 'undefined' ? window.UpvoteNative : null

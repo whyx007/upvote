@@ -12,6 +12,7 @@ def client(tmp_path):
         database_url=f"sqlite:///{tmp_path / 'test.db'}",
         secret_key="test-secret-key-0123456789abcdef",
         coins_per_like=1,
+        backup_scheduler_enabled=False,
     )
     application = create_app(settings)
     with TestClient(application) as c:

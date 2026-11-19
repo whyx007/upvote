@@ -10,6 +10,7 @@ import RewardsPanel from './admin/RewardsPanel.vue'
 import RedeemPanel from './admin/RedeemPanel.vue'
 import StatsPanel from './admin/StatsPanel.vue'
 import UsagePanel from './admin/UsagePanel.vue'
+import DataPanel from './admin/DataPanel.vue'
 
 const tab = ref('class')
 </script>
@@ -29,6 +30,7 @@ const tab = ref('class')
       <van-tab title="兑换" name="redeem"><RedeemPanel v-if="tab === 'redeem'" /></van-tab>
       <van-tab title="统计" name="stats"><StatsPanel v-if="tab === 'stats'" /></van-tab>
       <van-tab title="使用统计" name="usage"><UsagePanel v-if="tab === 'usage'" mode="admin" /></van-tab>
+      <van-tab title="数据管理" name="data"><DataPanel v-if="tab === 'data'" /></van-tab>
     </van-tabs>
   </div>
 </template>

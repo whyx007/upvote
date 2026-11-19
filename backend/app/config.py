@@ -13,6 +13,7 @@ class Settings:
     admin_default_password: str = "admin123"
     login_max_attempts: int = 10
     login_lockout_seconds: int = 300
+    backup_scheduler_enabled: bool = True
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -21,4 +22,6 @@ class Settings:
             secret_key=os.environ.get("UPVOTE_SECRET_KEY", cls.secret_key),
             coins_per_like=int(os.environ.get("UPVOTE_COINS_PER_LIKE", "1")),
             token_ttl_hours=int(os.environ.get("UPVOTE_TOKEN_TTL_HOURS", "168")),
+            backup_scheduler_enabled=os.environ.get("UPVOTE_BACKUP_SCHEDULER", "1").lower()
+            not in ("0", "false", "no", "off"),
         )

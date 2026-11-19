@@ -1,7 +1,9 @@
-from contextlib import asynccontextmanager
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.engine.url import make_url
 
@@ -11,6 +13,7 @@ from .routers import (
     admin,
     auth,
     classes,
+    data_admin,
     exports,
     groups,
     imports,
@@ -23,6 +26,7 @@ from .routers import (
     teachers,
 )
 from .seed import seed_admin
+from .services.data_backup import auto_backup_loop
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -36,21 +40,41 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        Base.metadata.create_all(engine)
-        ensure_schema(engine)
-        with make_session_factory(engine)() as session:
+        Base.metadata.create_all(app.state.engine)
+        ensure_schema(app.state.engine)
+        with make_session_factory(app.state.engine)() as session:
             seed_admin(session, settings)
+        backup_task = None
+        if settings.backup_scheduler_enabled:
+            backup_task = asyncio.create_task(auto_backup_loop(settings.database_url))
+            app.state.backup_task = backup_task
         yield
-        engine.dispose()
+        if backup_task is not None:
+            backup_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await backup_task
+        app.state.engine.dispose()
 
     app = FastAPI(title="星灿点赞积分系统", lifespan=lifespan)
     app.state.settings = settings
     app.state.engine = engine
     app.state.session_factory = make_session_factory(engine)
     app.state.login_failures = {}
+    app.state.maintenance = False
+    app.state.data_lock = asyncio.Lock()
+
+    @app.middleware("http")
+    async def maintenance_guard(request, call_next):
+        if app.state.maintenance and request.url.path not in (
+            "/api/health",
+            "/api/admin/data/restore",
+        ):
+            return JSONResponse(status_code=503, content={"detail": "数据恢复中，请稍候"})
+        return await call_next(request)
 
     app.include_router(auth.router)
     app.include_router(admin.router)
+    app.include_router(data_admin.router)
     app.include_router(imports.router)
     app.include_router(students.router)
     app.include_router(groups.router)
