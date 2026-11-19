@@ -73,6 +73,8 @@ powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1 -VersionName 1.0.
 > - Vite 构建依赖 esbuild 起子进程，受限沙箱（管道受限）会报 `spawn EPERM`
 > - 签名密钥：`android/keystore/upvote.jks`，密码记录在同目录 `KEYSTORE.txt`（均已 gitignore）
 >   **升级安装必须用同一把密钥**，请务必备份
+> - **2026-11-19**：原签名密钥随工作区误删丢失，已重建新密钥（别名 `upvote`，JKS）。
+>   此前安装的旧 APK 不能覆盖升级，必须先卸载再安装新签名的 APK。
 
 ## 安装到平板/手机
 
