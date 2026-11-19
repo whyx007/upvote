@@ -70,6 +70,14 @@ def parse_group_number(name: str) -> tuple[int, bool, bool] | None:
     return value, prefix, True
 
 
+def group_sort_key(name: str):
+    """数字组名按序号排在前，普通组名按名称排在后面。"""
+    parsed = parse_group_number(name)
+    if parsed is None:
+        return (1, 0, name)
+    return (0, parsed[0], name)
+
+
 def next_group_names(existing_names, count: int) -> list[str]:
     """按已有最大序号续号；没有数字组名时从“第一组”开始。"""
     parsed = [item for name in existing_names if (item := parse_group_number(name)) is not None]

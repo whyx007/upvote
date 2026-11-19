@@ -142,7 +142,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1 -VersionName 1.0.
 ## 测试
 
 ```bash
-cd backend && pytest              # 142 个单元/接口测试
+cd backend && pytest              # 143 个单元/接口测试
 python scripts/smoke.py           # 24 项端到端冒烟（需全新数据库的运行中服务）
 ```
 

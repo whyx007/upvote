@@ -94,6 +94,27 @@ def test_batch_create_groups_by_count_continues_numbering(client, admin_headers,
     assert r.json()["items"] == ["第11组"]
 
 
+def test_group_list_sorted_by_number(client, admin_headers, school):
+    for name in ["第三组", "第一组", "第十组", "第二组"]:
+        r = client.post(
+            "/api/groups",
+            headers=admin_headers,
+            json={"name": name, "class_name": "初一1班", "member_student_nos": []},
+        )
+        assert r.status_code == 200, r.text
+
+    groups = client.get(
+        "/api/groups", headers=admin_headers, params={"class_name": "初一1班"}
+    ).json()["items"]
+    assert [group["name"] for group in groups] == [
+        "第一组",
+        "第二组",
+        "第三组",
+        "第十组",
+        "星辰组",
+    ]
+
+
 def test_randomize_groups_clears_and_balances_members(client, admin_headers, school):
     r = client.post(
         "/api/groups",

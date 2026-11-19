@@ -10,7 +10,8 @@ from ..security import get_current_teacher, get_db
 from ..services.access import assert_class_access, is_admin, visible_class_names
 from ..services.class_roles import assert_class_group_manager
 from ..services.class_service import ensure_school_class
-from ..services.group_names import next_group_names
+from ..services.grades import class_sort_key
+from ..services.group_names import group_sort_key, next_group_names
 
 router = APIRouter(prefix="/api/groups", tags=["groups"])
 
@@ -74,7 +75,8 @@ def list_groups(
         stmt = stmt.where(Group.class_name == class_name)
     elif not is_admin(teacher):
         stmt = stmt.where(Group.class_name.in_(visible_class_names(db, teacher) or ["__none__"]))
-    groups = db.scalars(stmt.order_by(Group.class_name, Group.name)).all()
+    groups = list(db.scalars(stmt).all())
+    groups.sort(key=lambda group: (class_sort_key(group.class_name), group_sort_key(group.name)))
     items = []
     for g in groups:
         item = _serialize(db, g)
