@@ -73,10 +73,10 @@ def usage_report(
     conditions = [Like.revoked_at.is_(None), Like.created_at >= start_dt, Like.created_at < end_dt]
     conditions.append(Like.teacher_id.in_(teacher_ids))
     if class_name:
-        conditions.append(Student.class_name == class_name)
+        conditions.append(Like.class_name == class_name)
     elif grade:
         names = class_names_for_grade(db, grade)
-        conditions.append(Student.class_name.in_(names or ["__none__"]))
+        conditions.append(Like.class_name.in_(names or ["__none__"]))
 
     rows = db.execute(
         select(
@@ -86,9 +86,8 @@ def usage_report(
             func.count(func.distinct(func.date(Like.created_at))),
             func.min(Like.created_at),
             func.max(Like.created_at),
-            func.group_concat(func.distinct(Student.class_name)),
+            func.group_concat(func.distinct(Like.class_name)),
         )
-        .join(Student, Like.student_id == Student.id)
         .where(*conditions)
         .group_by(Like.teacher_id)
     ).all()
@@ -163,10 +162,10 @@ def usage_detail(
         Like.created_at < end_dt,
     ]
     if class_name:
-        conditions.append(Student.class_name == class_name)
+        conditions.append(Like.class_name == class_name)
     elif grade:
         names = class_names_for_grade(db, grade)
-        conditions.append(Student.class_name.in_(names or ["__none__"]))
+        conditions.append(Like.class_name.in_(names or ["__none__"]))
     rows = db.execute(
         select(Like, Student)
         .join(Student, Like.student_id == Student.id)
@@ -183,7 +182,7 @@ def usage_detail(
                 "student_id": student.id,
                 "student_name": student.name,
                 "student_no": student.student_no,
-                "class_name": student.class_name,
+                "class_name": like.class_name or student.class_name,
                 "group_name": group.name if group else None,
                 "created_at": like.created_at.isoformat(),
             }

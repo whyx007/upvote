@@ -235,9 +235,9 @@ def class_roster(
     ).all()
     ids = [s.id for s in students]
     semester_key = semester.id if semester else None
-    my_counts = like_counts_for_teacher(db, teacher.id, ids, semester_key)
+    my_counts = like_counts_for_teacher(db, teacher.id, ids, semester_key, class_name)
     totals = (
-        like_counts_for_students(db, ids, semester_key)
+        like_counts_for_students(db, ids, semester_key, class_name)
         if scope in ("class_manager", "admin")
         else {}
     )

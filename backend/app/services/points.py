@@ -19,16 +19,22 @@ def _like_counts(db: Session, student_ids, *extra) -> dict[int, int]:
     return dict(db.execute(stmt).all())
 
 
-def like_counts_for_students(db: Session, student_ids, semester_id) -> dict:
+def like_counts_for_students(db: Session, student_ids, semester_id, class_name: str | None = None) -> dict:
     """Return {student_id: {student_semester_likes, student_total_likes}}.
 
     这是“该学生收到的全部有效点赞”，不区分老师，只给班主任/副班主任和管理员。
+    传入 class_name 时按点赞发生时的班级快照过滤。
     """
     ids = list(student_ids)
     if not ids:
         return {}
-    total = _like_counts(db, ids)
-    semester = _like_counts(db, ids, Like.semester_id == semester_id) if semester_id is not None else {}
+    class_filter = (Like.class_name == class_name,) if class_name else ()
+    total = _like_counts(db, ids, *class_filter)
+    semester = (
+        _like_counts(db, ids, *class_filter, Like.semester_id == semester_id)
+        if semester_id is not None
+        else {}
+    )
     return {
         sid: {
             "student_semester_likes": semester.get(sid, 0),
@@ -38,14 +44,23 @@ def like_counts_for_students(db: Session, student_ids, semester_id) -> dict:
     }
 
 
-def like_counts_for_teacher(db: Session, teacher_id: int, student_ids, semester_id) -> dict:
+def like_counts_for_teacher(
+    db: Session, teacher_id: int, student_ids, semester_id, class_name: str | None = None
+) -> dict:
     """Return {student_id: {my_semester_likes, my_total_likes}} for one teacher."""
     ids = list(student_ids)
     if not ids:
         return {}
-    total = _like_counts(db, ids, Like.teacher_id == teacher_id)
+    class_filter = (Like.class_name == class_name,) if class_name else ()
+    total = _like_counts(db, ids, Like.teacher_id == teacher_id, *class_filter)
     semester = (
-        _like_counts(db, ids, Like.teacher_id == teacher_id, Like.semester_id == semester_id)
+        _like_counts(
+            db,
+            ids,
+            Like.teacher_id == teacher_id,
+            *class_filter,
+            Like.semester_id == semester_id,
+        )
         if semester_id is not None
         else {}
     )

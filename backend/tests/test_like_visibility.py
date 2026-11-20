@@ -203,15 +203,20 @@ def test_class_totals_follow_current_class_and_ignore_revoked(client, admin_head
     assert _row(payload, "2026002")["student_semester_likes"] == 1
     assert _row(payload, "2026001")["my_semester_likes"] == 1
 
-    # 学生转班后，历史点赞按当前班级统计
+    # 学生转班后，历史点赞保留在点赞发生时的班级快照中
     r = client.patch(f"/api/students/{sid2}", headers=admin_headers, json={"class_name": "初一2班"})
     assert r.status_code == 200, r.text
     payload = _roster(client, head_headers)
     assert payload["class_semester_likes"] == 2
     assert all(x["student_no"] != "2026002" for x in payload["items"])
     other_payload = _roster(client, admin_headers, "初一2班")
-    assert other_payload["class_semester_likes"] == 1
-    assert _row(other_payload, "2026002")["student_semester_likes"] == 1
+    assert other_payload["class_semester_likes"] == 0
+    assert _row(other_payload, "2026002")["student_semester_likes"] == 0
+
+    old_class_usage = client.get(
+        "/api/stats/usage", headers=admin_headers, params={"class_name": "初一1班"}
+    ).json()
+    assert old_class_usage["summary"]["total_likes"] == 3
 
 
 def test_cumulative_likes_survive_semester_switch(client, admin_headers, school):

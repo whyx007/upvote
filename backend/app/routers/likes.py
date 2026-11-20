@@ -63,10 +63,14 @@ def create_like(body: LikeIn, teacher=Depends(get_current_teacher), db: Session 
                 student_id=student.id,
                 group_id=group.id if group else None,
                 semester_id=semester.id,
+                class_name=student.class_name,
             )
         )
     db.commit()
-    my_counts = like_counts_for_teacher(db, teacher.id, [s.id for s in targets], semester.id)
+    class_name = targets[0].class_name if targets else None
+    my_counts = like_counts_for_teacher(
+        db, teacher.id, [s.id for s in targets], semester.id, class_name
+    )
     return {
         "batch_id": batch_id,
         "count": len(targets),
@@ -104,7 +108,9 @@ def decrement_like(body: DecrementIn, teacher=Depends(get_current_teacher), db: 
         raise HTTPException(status_code=400, detail="只能减少当日点赞，更早的请在管理端处理")
     like.revoked_at = datetime.now()
     db.commit()
-    my_counts = like_counts_for_teacher(db, teacher.id, [student.id], semester.id)[student.id]
+    my_counts = like_counts_for_teacher(
+        db, teacher.id, [student.id], semester.id, student.class_name
+    )[student.id]
     return {"student_id": student.id, **my_counts, "count": 1}
 
 
@@ -137,7 +143,7 @@ def recent_likes(
     if teacher.role != "admin":
         stmt = stmt.where(Like.teacher_id == teacher.id)
     if class_name:
-        stmt = stmt.join(Student, Like.student_id == Student.id).where(Student.class_name == class_name)
+        stmt = stmt.where(Like.class_name == class_name)
     likes = db.scalars(stmt.limit(300)).all()
     batches: dict[str, list[Like]] = {}
     for like in likes:
@@ -152,13 +158,15 @@ def recent_likes(
             if student and student.name not in student_names:
                 student_names.append(student.name)
         group = db.get(Group, first.group_id) if first.group_id else None
+        first_student = db.get(Student, first.student_id)
         items.append(
             {
                 "batch_id": batch_id,
                 "count": len(batch_likes),
                 "student_names": student_names[:3],
                 "group_name": group.name if group else None,
-                "class_name": db.get(Student, first.student_id).class_name,
+                "class_name": first.class_name
+                or (first_student.class_name if first_student else None),
                 "teacher_name": db.get(Teacher, first.teacher_id).name,
                 "created_at": first.created_at.isoformat(),
                 "revoked": first.revoked_at is not None,

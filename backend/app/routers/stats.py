@@ -109,13 +109,14 @@ def overview(
     ]
 
     per_class = []
-    class_names = sorted({s.class_name for s in students}, key=class_sort_key)
+    historical_classes = set(
+        db.scalars(select(Like.class_name).where(Like.class_name.is_not(None)).distinct()).all()
+    )
+    class_names = sorted({s.class_name for s in students} | historical_classes, key=class_sort_key)
     for class_name in class_names:
         class_students = [s for s in students if s.class_name == class_name]
         class_likes = db.scalar(
-            select(func.count(Like.id))
-            .join(Student, Like.student_id == Student.id)
-            .where(Student.class_name == class_name, *like_filters)
+            select(func.count(Like.id)).where(Like.class_name == class_name, *like_filters)
         )
         per_class.append({"class_name": class_name, "student_count": len(class_students), "likes": class_likes})
 

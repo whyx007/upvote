@@ -106,6 +106,8 @@ class Like(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id"), index=True)
     group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"), nullable=True)
     semester_id: Mapped[int] = mapped_column(ForeignKey("semesters.id"), index=True)
+    # 点赞发生时学生所在班级快照，保证学年升级/转班后历史统计留在原班级。
+    class_name: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, index=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

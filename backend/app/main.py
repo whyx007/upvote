@@ -18,6 +18,7 @@ from .routers import (
     groups,
     imports,
     likes,
+    promotion,
     redemptions,
     rewards,
     semesters,
@@ -75,6 +76,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(admin.router)
     app.include_router(data_admin.router)
+    app.include_router(promotion.router)
     app.include_router(imports.router)
     app.include_router(students.router)
     app.include_router(groups.router)

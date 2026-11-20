@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..models import Group, GroupMember, Student
 from ..security import get_current_teacher, get_db
-from ..services.access import assert_class_access, is_admin, visible_class_names
+from ..services.access import assert_class_access, visible_class_names
 from ..services.class_roles import assert_class_group_manager
 from ..services.class_service import ensure_school_class
 from ..services.grades import class_sort_key
@@ -73,7 +73,7 @@ def list_groups(
     if class_name:
         assert_class_access(db, teacher, class_name)
         stmt = stmt.where(Group.class_name == class_name)
-    elif not is_admin(teacher):
+    else:
         stmt = stmt.where(Group.class_name.in_(visible_class_names(db, teacher) or ["__none__"]))
     groups = list(db.scalars(stmt).all())
     groups.sort(key=lambda group: (class_sort_key(group.class_name), group_sort_key(group.name)))

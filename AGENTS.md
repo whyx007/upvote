@@ -22,7 +22,7 @@
 - 名单格式：学生只填班级（如“七年级一班”，年级已合并），支持一张表、每班一个 sheet、或每班一个文件（文件名=班级，可多选文件批量上传）；教师同理按学科。小组、任教不在 Excel 输入，网页设置。
 
 ## 常用命令
-- 后端测试：`cd backend; ..\.venv\Scripts\python.exe -m pytest`（152 测试）
+- 后端测试：`cd backend; ..\.venv\Scripts\python.exe -m pytest`（153 测试）
 - 启动服务：`cd backend; ..\.venv\Scripts\python.exe -m uvicorn app.main:create_app --factory --port 8000`
 - 前端构建：`cd frontend; & '<node>' '<pnpm.mjs>' build`（Node/pnpm 用 DSH 运行时路径，见 load_workspace_dependencies）
 - 端到端冒烟：`python scripts/smoke.py`（需全新数据库的运行中服务，24 项）

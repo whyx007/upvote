@@ -5,6 +5,7 @@ import { showToast } from 'vant'
 import api, { downloadBlob } from '../../api'
 import { useAuthStore } from '../../stores/auth'
 import ImportPanel from './ImportPanel.vue'
+import PromotionPanel from './PromotionPanel.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -209,6 +210,9 @@ onMounted(load)
       </van-tab>
       <van-tab title="名单导入" name="import">
         <ImportPanel />
+      </van-tab>
+      <van-tab title="学年升级" name="promotion">
+        <PromotionPanel @done="load" />
       </van-tab>
     </van-tabs>
 

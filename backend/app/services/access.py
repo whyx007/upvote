@@ -49,17 +49,25 @@ def normalize_role(value: str | None, default: str = ROLE_TEACHER) -> str:
     return aliases[raw]
 
 
+def _inactive_class_names(db: Session) -> set[str]:
+    return set(
+        db.scalars(select(SchoolClass.name).where(SchoolClass.is_active.is_(False))).all()
+    )
+
+
 def all_class_names(db: Session) -> list[str]:
     names: set[str] = set()
     names.update(db.scalars(select(SchoolClass.name).where(SchoolClass.is_active.is_(True))).all())
     names.update(db.scalars(select(Student.class_name).where(Student.is_active.is_(True)).distinct()).all())
     names.update(db.scalars(select(TeacherClass.class_name).distinct()).all())
-    return sorted((n for n in names if n), key=_class_sort)
+    inactive = _inactive_class_names(db)
+    return sorted((n for n in names if n and n not in inactive), key=_class_sort)
 
 
 def assigned_class_names(db: Session, teacher: Teacher) -> list[str]:
     names = db.scalars(select(TeacherClass.class_name).where(TeacherClass.teacher_id == teacher.id)).all()
-    return sorted({n for n in names if n}, key=_class_sort)
+    inactive = _inactive_class_names(db)
+    return sorted({n for n in names if n and n not in inactive}, key=_class_sort)
 
 
 def visible_class_names(db: Session, teacher: Teacher) -> list[str]:

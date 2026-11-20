@@ -5,7 +5,14 @@ from sqlalchemy.orm import Session
 
 from ..models import Teacher, TeacherClass
 from ..security import get_current_teacher, get_db, hash_password, require_admin
-from ..services.access import ROLE_ADMIN, ROLE_SUBJECT_LEAD, ROLE_TEACHER, all_class_names, normalize_role
+from ..services.access import (
+    ROLE_ADMIN,
+    ROLE_SUBJECT_LEAD,
+    ROLE_TEACHER,
+    all_class_names,
+    assigned_class_names,
+    normalize_role,
+)
 from ..services.class_service import ensure_school_class
 from ..services.class_roles import CLASS_MANAGER_DUTIES, assert_any_class_manager
 from ..services.grades import class_sort_key, grade_of_class, normalize_grade
@@ -80,8 +87,7 @@ def _serialize_full(db: Session, t: Teacher) -> dict:
 def my_classes(teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     if teacher.role == ROLE_ADMIN:
         return all_class_names(db)
-    classes = db.scalars(select(TeacherClass.class_name).where(TeacherClass.teacher_id == teacher.id)).all()
-    return sorted({c for c in classes if c}, key=class_sort_key)
+    return assigned_class_names(db, teacher)
 
 
 @router.get("/my/class-roles")
