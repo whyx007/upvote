@@ -31,6 +31,39 @@ def current_semester(db: Session) -> Semester | None:
     return db.scalar(select(Semester).where(Semester.is_current.is_(True)))
 
 
+def _semester(start_year: int, term: int) -> dict:
+    if term == 1:
+        start = date(start_year, 9, 1)
+        end = date(start_year + 1, 1, 15)
+        name = f"{start_year}-{start_year + 1}学年第一学期"
+    else:
+        start = date(start_year + 1, 2, 1)
+        end = date(start_year + 1, 7, 15)
+        name = f"{start_year}-{start_year + 1}学年第二学期"
+    return {"name": name, "start_date": start.isoformat(), "end_date": end.isoformat()}
+
+
+def suggest_semesters(today: date | None = None) -> list[dict]:
+    """按当前日期给出当前学期及后续 3 个学期，供新增时自动填充。"""
+    today = today or date.today()
+    if today.month >= 8:
+        start_year, term = today.year, 1
+    elif today.month == 1:
+        start_year, term = today.year - 1, 1
+    else:
+        start_year, term = today.year - 1, 2
+
+    items = []
+    for _ in range(4):
+        items.append(_semester(start_year, term))
+        if term == 1:
+            term = 2
+        else:
+            start_year += 1
+            term = 1
+    return items
+
+
 @router.get("")
 def list_semesters(teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     semesters = db.scalars(select(Semester).order_by(Semester.start_date)).all()
@@ -53,6 +86,11 @@ def create_semester(body: SemesterIn, admin=Depends(require_admin), db: Session 
 def get_current(teacher=Depends(get_current_teacher), db: Session = Depends(get_db)):
     semester = current_semester(db)
     return serialize_semester(semester) if semester else None
+
+
+@router.get("/suggest")
+def suggest(admin=Depends(require_admin)):
+    return {"items": suggest_semesters()}
 
 
 @router.post("/{semester_id}/activate")
