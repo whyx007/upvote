@@ -592,7 +592,7 @@ onMounted(async () => {
     </transition>
 
     <!-- 指派教师 / 设置班级角色 -->
-    <van-dialog teleport="body" v-model:show="showAssignDialog" :title="`指派教师到 ${className}`" :show-confirm-button="false" class="form-dialog">
+    <van-dialog teleport="body" v-model:show="showAssignDialog" :title="`指派教师到 ${className}`" :show-confirm-button="false" close-on-click-overlay class="form-dialog">
       <van-field label="班级角色">
         <template #input>
           <van-radio-group v-model="assignDuty" direction="horizontal">
@@ -614,6 +614,9 @@ onMounted(async () => {
           @click="assignTeacher(t)"
         />
         <van-empty v-if="!assignCandidates.length" description="没有匹配的教师" />
+      </div>
+      <div style="padding: 0 16px 14px">
+        <van-button block round plain @click="showAssignDialog = false">关闭</van-button>
       </div>
     </van-dialog>
   </div>
