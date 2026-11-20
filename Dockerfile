@@ -12,6 +12,7 @@ WORKDIR /app/backend
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/app ./app
+COPY docs/example /app/docs/example
 COPY --from=frontend /app/frontend/dist /app/frontend/dist
 ENV UPVOTE_DATABASE_URL=sqlite:////app/data/upvote.db
 EXPOSE 8000

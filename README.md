@@ -100,7 +100,7 @@ python scripts/backup.py            # 在线安全备份到 data/backups/，保�
 
 **年级不再单独填写，合并到班级**（如“七年级一班”）。小组、任教关系不在 Excel 输入，导入后到网页设置。重复导入只更新不重复；学生缺学号自动生成 `S...`，教师缺工号从 `T001` 起自动生成；错误逐行报告不影响其他行。
 
-管理台「数据管理 → 名单导入」提供：**下载 Excel 名单模板**（含“说明”工作表，逐列标注是否必填/示例/规则）、**一键导入 Excel 名单**、**一键清除名单**（需当前管理员密码 + 输入“清除名单”确认）。清除范围：学生、小组、班级、任教关系、非管理员教师、点赞/兑换记录、导入历史；保留学期、奖励目录和管理员账号。完整字段说明见 [Excel 名单导入格式](docs/excel-import.md)，模板文件见 [名单导入模板.xlsx](docs/名单导入模板.xlsx)。
+管理台「数据管理 → 名单导入」提供：**下载 Excel 名单模板/示例（zip）**、**一键导入 Excel 名单**、**一键清除名单**（需当前管理员密码 + 输入“清除名单”确认）。清除范围：学生、小组、班级、任教关系、非管理员教师、点赞/兑换记录、导入历史；保留学期、奖励目录和管理员账号。完整字段说明见 [Excel 名单导入格式](docs/excel-import.md)，示例文件见 [docs/example](docs/example/README.md)。
 
 当前演示库的全量名单：[全量学生名单_按班级.xlsx](docs/全量学生名单_按班级.xlsx)、[全量教师名单_按学科.xlsx](docs/全量教师名单_按学科.xlsx)、[全量名单_按班级和学科.xlsx](docs/全量名单_按班级和学科.xlsx)、[按班拆分_60个Excel.zip](docs/按班拆分_60个Excel.zip)、[按学科拆分_13个Excel.zip](docs/按学科拆分_13个Excel.zip)。
 
@@ -143,7 +143,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build_apk.ps1 -VersionName 1.0.
 ## 测试
 
 ```bash
-cd backend && pytest              # 149 个单元/接口测试
+cd backend && pytest              # 150 个单元/接口测试
 python scripts/smoke.py           # 24 项端到端冒烟（需全新数据库的运行中服务）
 ```
 

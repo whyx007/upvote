@@ -1,4 +1,7 @@
+import io
 import json
+import zipfile
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -12,6 +15,7 @@ from ..services.importer import build_template, import_workbook
 router = APIRouter(prefix="/api/imports", tags=["imports"])
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+EXAMPLE_DIR = Path(__file__).resolve().parents[3] / "docs" / "example"
 
 
 def _merge_summary(target: dict, summary: dict) -> None:
@@ -67,6 +71,25 @@ def download_template(admin=Depends(require_admin)):
         content=build_template(),
         media_type=XLSX_MIME,
         headers={"Content-Disposition": "attachment; filename=upvote_template.xlsx"},
+    )
+
+
+@router.get("/examples")
+def download_examples(admin=Depends(require_admin)):
+    """下载 docs/example 下的班级/学科示例文件，作为名单导入说明。"""
+    if not EXAMPLE_DIR.is_dir():
+        raise HTTPException(status_code=404, detail="导入示例文件夹不存在")
+    files = sorted(path for path in EXAMPLE_DIR.iterdir() if path.is_file())
+    if not files:
+        raise HTTPException(status_code=404, detail="导入示例文件为空")
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in files:
+            archive.write(path, arcname=f"example/{path.name}")
+    return Response(
+        content=buffer.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": "attachment; filename=upvote_examples.zip"},
     )
 
 

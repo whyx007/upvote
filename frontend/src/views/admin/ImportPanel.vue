@@ -97,8 +97,8 @@ onMounted(loadHistory)
 
 <template>
   <div style="padding: 16px">
-    <van-button type="primary" plain block icon="down" @click="downloadBlob('/imports/template', '名单导入模板.xlsx')">
-      下载 Excel 名单模板（含格式说明）
+    <van-button type="primary" plain block icon="down" @click="downloadBlob('/imports/examples', '名单导入示例.zip')">
+      下载 Excel 名单模板/示例（zip）
     </van-button>
     <div style="margin-top: 12px">
       <van-uploader :after-read="afterRead" accept=".xlsx" :disabled="uploading" multiple>

@@ -1,5 +1,6 @@
-"""Excel import: template, upsert, row errors, scattered incremental data."""
+"""Excel import: template, examples, upsert, row errors, scattered incremental data."""
 import io
+import zipfile
 
 from openpyxl import load_workbook
 
@@ -22,6 +23,19 @@ def test_template_download_has_two_roster_sheets(client, admin_headers):
     assert "级" in [c.value for c in wb["学生"][1]]
     assert "班级" in [c.value for c in wb["学生"][1]]
     assert "年级" not in [c.value for c in wb["学生"][1]]
+
+
+def test_examples_zip_contains_class_and_subject_files(client, admin_headers):
+    r = client.get("/api/imports/examples", headers=admin_headers)
+    assert r.status_code == 200, r.text
+    assert r.headers["content-type"] == "application/zip"
+    with zipfile.ZipFile(io.BytesIO(r.content)) as archive:
+        names = set(archive.namelist())
+    assert "example/七年级一班.xlsx" in names
+    assert "example/语文.xlsx" in names
+    assert "example/全量学生名单_每年级两班.xlsx" in names
+    assert "example/全量教师名单_语文数学.xlsx" in names
+    assert "example/README.md" in names
 
 
 def test_import_students_creates(client, admin_headers):
