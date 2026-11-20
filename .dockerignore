@@ -5,15 +5,12 @@
 .feishu
 data
 build
-docs
 scripts
 backend/tests
 backend/.pytest_cache
 frontend/node_modules
 frontend/dist
-*.md
 *.db
-*.xlsx
 .env
 .env.*
 !Dockerfile
