@@ -68,6 +68,10 @@ def _db_path(request: Request) -> Path:
     return path
 
 
+def _apk_path(request: Request) -> Path:
+    return _db_path(request).parent / "app" / "upvote.apk"
+
+
 def _count(db: Session, model, *conditions) -> int:
     return db.scalar(select(func.count()).select_from(model).where(*conditions)) or 0
 
@@ -75,6 +79,7 @@ def _count(db: Session, model, *conditions) -> int:
 @router.get("/summary")
 def data_summary(request: Request, admin=Depends(require_admin), db: Session = Depends(get_db)):
     path = _db_path(request)
+    apk = _apk_path(request)
     backups = list_auto_backups(request.app.state.settings.database_url)
     return {
         "database": {
@@ -97,7 +102,27 @@ def data_summary(request: Request, admin=Depends(require_admin), db: Session = D
             "last": backups[0] if backups else None,
             "items": backups,
         },
+        "apk": {
+            "available": apk.is_file(),
+            "size": apk.stat().st_size if apk.is_file() else 0,
+            "updated_at": datetime.fromtimestamp(apk.stat().st_mtime, TZ).isoformat()
+            if apk.is_file()
+            else None,
+        },
     }
+
+
+@router.get("/apk")
+def download_apk(request: Request, admin=Depends(require_admin)):
+    """下载当前部署的安卓 APK。"""
+    path = _apk_path(request)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="尚未上传安卓 APK")
+    return FileResponse(
+        path,
+        media_type="application/vnd.android.package-archive",
+        filename="upvote.apk",
+    )
 
 
 @router.get("/backup")

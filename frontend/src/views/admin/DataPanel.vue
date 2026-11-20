@@ -52,6 +52,10 @@ function downloadExcel() {
   downloadBlob('/admin/data/export.xlsx', 'upvote-personnel-likes.xlsx')
 }
 
+function downloadApk() {
+  downloadBlob('/admin/data/apk', 'upvote.apk', undefined, { timeout: 0 })
+}
+
 function downloadAuto(item) {
   downloadBlob(`/admin/data/backups/${encodeURIComponent(item.name)}`, item.name, undefined, {
     timeout: 0
@@ -167,6 +171,10 @@ onMounted(load)
       <div style="padding: 0 16px; display: grid; gap: 10px">
         <van-button type="primary" block icon="down" @click="downloadBackup">下载完整备份（.db）</van-button>
         <van-button type="warning" plain block icon="down" @click="downloadExcel">导出人员名单 + 学生点赞总数（Excel）</van-button>
+        <van-button type="success" block icon="down" :disabled="!summary.apk?.available" @click="downloadApk">下载安卓APP</van-button>
+        <div class="muted" style="text-align: center">
+          {{ summary.apk?.available ? `APK ${formatSize(summary.apk.size)} · ${formatTime(summary.apk.updated_at)}` : '尚未上传安卓 APP' }}
+        </div>
       </div>
 
       <div class="section-title">自动备份</div>

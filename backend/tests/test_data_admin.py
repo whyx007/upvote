@@ -23,11 +23,28 @@ def test_data_summary_and_manual_backup(client, admin_headers, school):
     assert body["backup"]["enabled"] is False
     assert body["backup"]["keep"] == 5
     assert body["backup"]["next_at"]
+    assert body["apk"]["available"] is False
 
     r = client.get("/api/admin/data/backup", headers=admin_headers)
     assert r.status_code == 200, r.text
     assert r.content.startswith(b"SQLite format 3\x00")
     assert ".db" in r.headers.get("content-disposition", "")
+
+
+def test_apk_download_when_uploaded(client, admin_headers):
+    db_path = sqlite_path(client.app.state.settings.database_url)
+    apk_dir = db_path.parent / "app"
+    apk_dir.mkdir(parents=True, exist_ok=True)
+    (apk_dir / "upvote.apk").write_bytes(b"PK\x03\x04test-apk")
+
+    summary = client.get("/api/admin/data/summary", headers=admin_headers).json()
+    assert summary["apk"]["available"] is True
+    assert summary["apk"]["size"] > 0
+
+    r = client.get("/api/admin/data/apk", headers=admin_headers)
+    assert r.status_code == 200, r.text
+    assert r.content == b"PK\x03\x04test-apk"
+    assert r.headers["content-type"] == "application/vnd.android.package-archive"
 
 
 def test_data_export_has_rosters_and_semester_like_totals(client, admin_headers, school):
