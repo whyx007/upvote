@@ -4,11 +4,13 @@ import { useRouter } from 'vue-router'
 import { showToast } from 'vant'
 import api, { downloadBlob } from '../../api'
 import { useAuthStore } from '../../stores/auth'
+import ImportPanel from './ImportPanel.vue'
 
 const auth = useAuthStore()
 const router = useRouter()
 const loading = ref(false)
 const summary = ref(null)
+const dataTab = ref('backup')
 
 const showRestore = ref(false)
 const restoreFile = ref(null)
@@ -145,9 +147,12 @@ onMounted(load)
 </script>
 
 <template>
-  <div style="padding-bottom: 24px">
-    <van-loading v-if="loading && !summary" style="text-align: center; padding: 30px" />
-    <template v-else-if="summary">
+  <div>
+    <van-tabs v-model:active="dataTab" sticky>
+      <van-tab title="备份与恢复" name="backup">
+        <div style="padding-bottom: 24px">
+          <van-loading v-if="loading && !summary" style="text-align: center; padding: 30px" />
+          <template v-else-if="summary">
       <div class="stat-grid" style="padding: 16px">
         <div class="stat-card"><div class="num">{{ summary.counts.students }}</div><div class="label">学生</div></div>
         <div class="stat-card"><div class="num">{{ summary.counts.teachers }}</div><div class="label">教师</div></div>
@@ -200,6 +205,12 @@ onMounted(load)
         <van-button type="danger" plain block icon="delete-o" @click="openReset">恢复出厂设置</van-button>
       </div>
     </template>
+        </div>
+      </van-tab>
+      <van-tab title="名单导入" name="import">
+        <ImportPanel />
+      </van-tab>
+    </van-tabs>
 
     <van-dialog
       v-model:show="showRestore"

@@ -4,7 +4,6 @@ import UserMenu from '../components/UserMenu.vue'
 import ClassWorkspace from './admin/ClassWorkspace.vue'
 import StudentRosterPanel from './admin/StudentRosterPanel.vue'
 import TeachersPanel from './admin/TeachersPanel.vue'
-import ImportPanel from './admin/ImportPanel.vue'
 import SemestersPanel from './admin/SemestersPanel.vue'
 import RewardsPanel from './admin/RewardsPanel.vue'
 import RedeemPanel from './admin/RedeemPanel.vue'
@@ -24,7 +23,6 @@ const tab = ref('class')
       <van-tab title="班级" name="class"><ClassWorkspace v-if="tab === 'class'" /></van-tab>
       <van-tab title="名册" name="roster"><StudentRosterPanel v-if="tab === 'roster'" /></van-tab>
       <van-tab title="教师" name="teachers"><TeachersPanel v-if="tab === 'teachers'" /></van-tab>
-      <van-tab title="名单导入" name="import"><ImportPanel v-if="tab === 'import'" /></van-tab>
       <van-tab title="学期" name="semesters"><SemestersPanel v-if="tab === 'semesters'" /></van-tab>
       <van-tab title="奖励" name="rewards"><RewardsPanel v-if="tab === 'rewards'" /></van-tab>
       <van-tab title="兑换" name="redeem"><RedeemPanel v-if="tab === 'redeem'" /></van-tab>
